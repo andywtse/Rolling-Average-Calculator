@@ -36,13 +36,6 @@ public class Client {
             + ":" + port);
         // FIXME 11/07/17: Fill in method and remove the random calls.
         if (UIHandler != null) {
-            // Thread constructor takes in a Runnable object. Runnable is an
-            // interface so an anonymous inner class was used. Java 1.8
-            // introduced the ability to use Lambdas, which are anonymous
-            // inner classes with exactly one relevant method written in
-            // shorthand. The Lambda below says:
-            // The method takes no arguments and performs the following block
-            // of code.
             new Thread(() -> {
                 // Simulate a network delay.
                 try {

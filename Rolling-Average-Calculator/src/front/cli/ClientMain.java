@@ -126,7 +126,13 @@ public class ClientMain implements ClientUI {
                 break;
             case PromptReconnect:
             case ConnectionFailed:
-                requestYesNoInput("Would you like to try connecting again?");
+                if (requestYesNoInput(
+                    "Would you like to try connecting again?")) {
+                    menuState = ClientMenuState.RequestServerInfo;
+                } else {
+                    shouldQuit = true;
+                }
+                hasNewInput = true;
                 break;
         }
         if (stateLock.isHeldByCurrentThread()) {
@@ -136,10 +142,11 @@ public class ClientMain implements ClientUI {
 
     /**
      * Request a proper "y" or "n" answer from the user for a specific response.
+     * Everyone who calls this should attempt to unlock the stateLock.
      *
      * @param requestMessage The message to request a "Yes" or "No" answer.
      */
-    private void requestYesNoInput(final String requestMessage) {
+    private boolean requestYesNoInput(final String requestMessage) {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
@@ -148,17 +155,13 @@ public class ClientMain implements ClientUI {
             final String input = scanner.nextLine();
             if (input.length() == 1) {
                 if (input.equalsIgnoreCase("Y")) {
-                    menuState = ClientMenuState.RequestServerInfo;
-                    break;
+                    return true;
                 } else if (input.equalsIgnoreCase("N")) {
-                    shouldQuit = true;
-                    break;
+                    return false;
                 }
             }
             System.out.println("Sorry, I couldn't understand you. Let me try again.");
         } while (true);
-        hasNewInput = true;
-        stateLock.unlock();
     }
 
     /**
