@@ -2,8 +2,13 @@ package front.cli;
 
 import back.interfacing.ServerUI;
 import back.network.Server;
+import front.cli.utility.indicators.BarProgressIndicator;
+import front.cli.utility.indicators.ProgressIndicator;
 import front.network.ServerMenuState;
 
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -13,9 +18,11 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class ServerMain implements ServerUI {
 
-    private static final int INPUT_DELAY_MS = 2000;
+    private static final int INPUT_DELAY_MS = 200;
 
+    private List<String> log;
     private Server server;
+    private ProgressIndicator progressIndicator;
     private Scanner scanner;
     private ServerMenuState menuState;
 
@@ -34,6 +41,7 @@ public class ServerMain implements ServerUI {
         server.setUIHandler(this);
         scanner = new Scanner(System.in);
         stateLock = new ReentrantLock();
+        log = new LinkedList<>();
         menuState = ServerMenuState.RequestServerInfo;
         hasNewInput = true;
         shouldQuit = false;
@@ -48,6 +56,13 @@ public class ServerMain implements ServerUI {
     private void startCommunicating() {
         while (true) {
             if (hasNewInput) {
+                if (progressIndicator != null) {
+                    while (!stateLock.isHeldByCurrentThread()) {
+                        stateLock.lock();
+                    }
+                    progressIndicator.stop();
+                    stateLock.unlock();
+                }
                 if (shouldQuit) {
                     server.shutDown();
                     System.out.println("Good bye!");
@@ -58,10 +73,17 @@ public class ServerMain implements ServerUI {
                 while (!stateLock.isHeldByCurrentThread()) {
                     stateLock.lock();
                 }
-                System.out.println("Processing...");
-                System.out.print("While you wait, I'll echo your input: ");
-                final String input = scanner.nextLine();
-                System.out.println("echo: " + input);
+                if (!shouldQuit) {
+                    if (progressIndicator == null) {
+                        final List<Character> list = new ArrayList<>(2);
+                        list.add('-');
+                        list.add('=');
+                        progressIndicator = new BarProgressIndicator(list);
+                        progressIndicator.begin();
+                    } else {
+                        progressIndicator.next();
+                    }
+                }
                 stateLock.unlock();
             }
 
@@ -96,12 +118,20 @@ public class ServerMain implements ServerUI {
                 // TODO 11/07/17: Fill this in with more options.
                 System.out.println("Main Menu");
                 System.out.println("Options:");
-                System.out.println("1) Shutdown");
+                System.out.println("1) Output logs");
+                System.out.println("2) Shutdown");
                 System.out.println(
                     "\nWhat would you like to do? (number only) ");
                 final String input = scanner.nextLine();
                 if (input.length() == 1) {
                     if (input.equalsIgnoreCase("1")) {
+                        System.out.println("Logs:\n");
+                        for (int i = 0; i < log.size(); ++i) {
+                            System.out.println((i + 1) + ") " + log.get(i));
+                        }
+                        System.out.println("\n Logs complete");
+                        break;
+                    } else if (input.equalsIgnoreCase("2")) {
                         server.shutDown();
                         hasNewInput = false;
                         break;
@@ -121,7 +151,9 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        System.out.println("Server started!");
+        final String started = "Server started!";
+        log.add(started);
+        System.out.println(started);
         menuState = ServerMenuState.MainMenu;
         hasNewInput = true;
         stateLock.unlock();
@@ -132,7 +164,9 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        System.out.println("Could not start server due to: " + reason);
+        final String failure = "Could not begin server due to: " + reason;
+        log.add(failure);
+        System.out.println(failure);
         if (requestYesNoInput("Would you like to try again?")) {
             menuState = ServerMenuState.RequestServerInfo;
         } else {
@@ -147,8 +181,9 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        System.out.println("Client with IP address " + ipAddress
-            + " has connected!");
+        final String connected = "Client with IP address " + ipAddress
+                + " has connected!";
+        log.add(connected);
         stateLock.unlock();
     }
 
@@ -157,8 +192,9 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        System.out.println("Client with IP address " + ipAddress
-                + " has disconnected!");
+        final String disconnected = "Client with IP address " + ipAddress
+                + " has disconnected!";
+        log.add(disconnected);
         stateLock.unlock();
     }
 
@@ -167,13 +203,14 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        System.out.println("All connections have stopped.");
+        final String success = "All connections have stopped.";
+        log.add(success);
         if (shouldQuit) {
             return;
         }
 
         if (requestYesNoInput(
-            "Would you like to restart the server?")) {
+            "\nWould you like to restart the server?")) {
             menuState = ServerMenuState.RequestServerInfo;
         } else {
             shouldQuit = true;
@@ -189,7 +226,8 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        System.out.println("Failed to shutdown server due to: " + reason);
+        final String failure = "Failed to shutdown server due to: " + reason;
+        log.add(failure);
         menuState = ServerMenuState.MainMenu;
         hasNewInput = true;
         stateLock.unlock();
@@ -200,8 +238,9 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        System.out.println("Connection to a client has failed due to "
-            + reason);
+        final String connectionBroken = "Connection to a client has failed due to "
+                + reason;
+        log.add(connectionBroken);
         stateLock.unlock();
     }
 

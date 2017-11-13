@@ -2,6 +2,8 @@ package front.cli;
 
 import back.interfacing.ClientUI;
 import back.network.Client;
+import front.cli.utility.indicators.ProgressIndicator;
+import front.cli.utility.indicators.SpinningProgressIndicator;
 import front.network.ClientMenuState;
 
 import java.util.Scanner;
@@ -13,9 +15,10 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class ClientMain implements ClientUI {
 
-    private static final int INPUT_DELAY_MS = 500;
+    private static final int INPUT_DELAY_MS = 200;
 
     private Client client;
+    private ProgressIndicator progressIndicator;
     private Scanner scanner;
     private ClientMenuState menuState;
 
@@ -24,6 +27,8 @@ public class ClientMain implements ClientUI {
      * change, which is likely any time the user is asked for input.
      */
     private ReentrantLock stateLock;
+    
+    private String additionalText;
 
     private boolean hasNewInput;
     private boolean shouldQuit;
@@ -47,6 +52,17 @@ public class ClientMain implements ClientUI {
     private void startCommunicating() {
         while (true) {
             if (hasNewInput) {
+                if (progressIndicator != null) {
+                    while (!stateLock.isHeldByCurrentThread()) {
+                        stateLock.lock();
+                    }
+                    progressIndicator.stop();
+                    stateLock.unlock();
+                }
+                if (additionalText != null) {
+                    System.out.println(additionalText);
+                    additionalText = null;
+                }
                 if (shouldQuit) {
                     client.disconnect();
                     System.out.println("Good bye!");
@@ -54,10 +70,16 @@ public class ClientMain implements ClientUI {
                 }
                 processMenuState();
             } else {
-                System.out.println("Processing...");
-                System.out.print("While you wait, I'll echo your input: ");
-                final String input = scanner.nextLine();
-                System.out.println("echo: " + input);
+                while (!stateLock.isHeldByCurrentThread()) {
+                    stateLock.lock();
+                }
+                if (progressIndicator == null) {
+                    progressIndicator = new SpinningProgressIndicator();
+                    progressIndicator.begin();
+                } else {
+                    progressIndicator.next();
+                }
+                stateLock.unlock();
             }
 
             try {
@@ -74,7 +96,7 @@ public class ClientMain implements ClientUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        System.out.println("Connected!");
+        additionalText = "Connected!";
         menuState = ClientMenuState.MainMenu;
         hasNewInput = true;
         stateLock.unlock();
@@ -85,7 +107,7 @@ public class ClientMain implements ClientUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        System.out.println("Failed to connect due to: " + reason);
+        additionalText = "Failed to connect due to: " + reason;
         menuState = ClientMenuState.PromptReconnect;
         hasNewInput = true;
         stateLock.unlock();
@@ -96,7 +118,7 @@ public class ClientMain implements ClientUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        System.out.println("Connection failed due to: " + reason);
+        additionalText = "Connection failed due to: " + reason;
         menuState = ClientMenuState.ConnectionFailed;
         hasNewInput = true;
         stateLock.unlock();
