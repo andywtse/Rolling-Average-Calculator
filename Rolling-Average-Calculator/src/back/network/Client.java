@@ -7,17 +7,21 @@ import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 
-public class Client implements Runnable {
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 
-    private PrintWriter out;
-    private BufferedReader in;
+/**
+ * This class is used to create a network connection to the {@link Server}
+ * for a user to enter numbers.
+ */
+public class Client {
 
-    private int clientPort;
-    private String clientAddress;
-    private Socket clientSocket;
-    private int clientID;
-
-    private boolean isStopped = false;
+    BufferedReader in;
+    PrintWriter out;
 
     /**
      * Creates new Client with address and port
@@ -65,27 +69,47 @@ public class Client implements Runnable {
     /**
      * Shutdowns the client connection with the server
      */
-    public boolean terminate() {
-        try {
-            this.in.close();
-            this.out.close();
+    public void connect(final String ipAddress, final String port) {
+        System.out.println("Attempting to connect to " + ipAddress
+            + ":" + port);
 
+        new Thread(()-> {
+            try {
+                Socket clientSocket = new Socket();
+                clientSocket.connect(new InetSocketAddress(ipAddress, Integer.parseInt(port)), 2000);
+                UIHandler.onConnectionSuccess();
 
-            //TODO Send message to server to close this client with this ID
-
-            this.clientSocket.close();
-            if (clientSocket.isClosed()) {
-                //TODO Handler
-                //UIHandler.onShutdownSuccess();
-                this.isStopped = true;
+                in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                out = new PrintWriter(clientSocket.getOutputStream(), true);
+            } catch (IOException e) {
+                UIHandler.onConnectionFailure("Failed to open socket");
             }
-        } catch (IOException e) {
-            //TODO Handler
-            //UIHandler.onShutdownFailure("Error in closing connection");
-            System.out.println("Error in closing connection");
-        }
+        }).start();
 
-        return this.isStopped;
+
+
+
+//        // FIXME 11/07/17: Fill in method and remove the random calls.
+//        if (UIHandler != null) {
+//            new Thread(() -> {
+//                // Simulate a network delay.
+//                try {
+//                    Thread.sleep(5000);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+//                final boolean didConnect =  Math.random() > 0.99f;
+//                if (didConnect) {
+//                    UIHandler.onConnectionSuccess();
+//                } else {
+//                    UIHandler.onConnectionFailure(
+//                        "You were unlucky, I guess.");
+//                }
+//            }).start();
+//        } else {
+//            System.err.println("Attempted to connect without user interface.");
+//            System.exit(-1);
+//        }
     }
 
     /**

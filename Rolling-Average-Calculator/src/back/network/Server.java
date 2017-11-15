@@ -14,8 +14,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Server implements Runnable{
 
-    private int serverPort;
-    private String serverAddress;
+    /**
+     * The interface that a user will use to communicate with this. It is
+     * preferred to communicate back to this handler on a non-UI thread.
+     */
+    private ServerUI UIHandler;
+    private boolean isShuttingDown = false;
+    private ServerPool server;
+    private Thread threadServer;
 
     private ServerSocket serverSocket = null;
     private ExecutorService threadPool = Executors.newFixedThreadPool(4);
@@ -40,21 +46,13 @@ public class Server implements Runnable{
     /**
      * Creates new thread for every new connection from clients
      */
-    @Override
-    public void run() {
-
-        openServerSocket();
-
-        while(!isStopped){
-            Socket clientSocket=null;
-            try{
-                clientSocket = this.serverSocket.accept();
-            }catch (IOException e){
-                if(isStopped){
-                    System.out.println("ServerAdapter has stopped");
-                    break;
-                }
-                //TODO Handler
+    public void spinUp(final String ipAddress, final String port) {
+        new Thread(()-> {
+            server = new ServerPool(Integer.parseInt(port));
+            threadServer = new Thread(server);
+            threadServer.start();
+            if (threadServer.isAlive()) {
+                UIHandler.onSpinUpSuccess();
             }
             System.out.println("New client: "+clientSocket.getLocalAddress());
             int curClientID=clientId.getAndIncrement();
@@ -91,10 +89,31 @@ public class Server implements Runnable{
 //            UIHandler.onShutdownFailure("Server shutdown was interrupted");
             System.out.println("Server shutdown was interrupted");
         }
+        isShuttingDown = true;
 
-        //TODO Shutdown each clientSocket gracefully by alerting each client
-
-        return this.isStopped;
+//        // FIXME 11/07/17: Fill this method in correctly.
+//        new Thread(()->{
+//            for (int i = 0; i < 3; ++i) {
+//                try {
+//                    Thread.sleep(2000);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+//                // Regardless of whether the UIHandler is null, we want
+//                // to shutdown all connections since we know we may exit.
+//                if (UIHandler != null) {
+//                    UIHandler.onClientDisconnected("127.0.0.1");
+//                }
+//            }
+//            if (UIHandler != null) {
+//                final boolean isSuccessful = Math.random() < 0.99f;
+//                if (isSuccessful) {
+//                    UIHandler.onShutdownSuccess();
+//                } else {
+//                    UIHandler.onShutdownFailure("You were unlucky.");
+//                }
+//            }
+//        }).start();
     }
 
     /**
