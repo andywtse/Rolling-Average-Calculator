@@ -2,11 +2,21 @@ package back.network;
 
 import back.interfacing.ClientUI;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+
 /**
  * This class is used to create a network connection to the {@link Server}
  * for a user to enter numbers.
  */
 public class Client {
+
+    BufferedReader in;
+    PrintWriter out;
 
     /**
      * The interface that a user will use to communicate with this. It is
@@ -34,27 +44,44 @@ public class Client {
     public void connect(final String ipAddress, final String port) {
         System.out.println("Attempting to connect to " + ipAddress
             + ":" + port);
-        // FIXME 11/07/17: Fill in method and remove the random calls.
-        if (UIHandler != null) {
-            new Thread(() -> {
-                // Simulate a network delay.
-                try {
-                    Thread.sleep(5000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                final boolean didConnect =  Math.random() > 0.99f;
-                if (didConnect) {
-                    UIHandler.onConnectionSuccess();
-                } else {
-                    UIHandler.onConnectionFailure(
-                        "You were unlucky, I guess.");
-                }
-            }).start();
-        } else {
-            System.err.println("Attempted to connect without user interface.");
-            System.exit(-1);
-        }
+
+        new Thread(()-> {
+            try {
+                Socket clientSocket = new Socket();
+                clientSocket.connect(new InetSocketAddress(ipAddress, Integer.parseInt(port)), 2000);
+                UIHandler.onConnectionSuccess();
+
+                in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                out = new PrintWriter(clientSocket.getOutputStream(), true);
+            } catch (IOException e) {
+                UIHandler.onConnectionFailure("Failed to open socket");
+            }
+        }).start();
+
+
+
+
+//        // FIXME 11/07/17: Fill in method and remove the random calls.
+//        if (UIHandler != null) {
+//            new Thread(() -> {
+//                // Simulate a network delay.
+//                try {
+//                    Thread.sleep(5000);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+//                final boolean didConnect =  Math.random() > 0.99f;
+//                if (didConnect) {
+//                    UIHandler.onConnectionSuccess();
+//                } else {
+//                    UIHandler.onConnectionFailure(
+//                        "You were unlucky, I guess.");
+//                }
+//            }).start();
+//        } else {
+//            System.err.println("Attempted to connect without user interface.");
+//            System.exit(-1);
+//        }
     }
 
     /**
