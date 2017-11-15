@@ -15,6 +15,8 @@ public class Server {
      */
     private ServerUI UIHandler;
     private boolean isShuttingDown = false;
+    private ServerPool server;
+    private Thread threadServer;
 
     /**
      * Establish a link to the communication interface that the user
@@ -32,27 +34,12 @@ public class Server {
      * @param port The port number to open for the network server.
      */
     public void spinUp(final String ipAddress, final String port) {
-        // FIXME 11/07/17: Fill this method in correctly.
-        new Thread(()->{
-            final boolean isSuccessful = Math.random() < 0.99f;
-            if (UIHandler != null) {
-                if (isSuccessful) {
-                    UIHandler.onSpinUpSuccess();
-                    for (int i = 0; i < 3; ++i) {
-                        try {
-                            Thread.sleep(2000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        UIHandler.onClientConnected("127.0.0.1");
-                    }
-                } else {
-                    UIHandler.onSpinUpFailure("You were unlucky.");
-                }
-            } else {
-                System.err.println("Attempted to create server without "
-                        + "user interface.");
-                System.exit(-1);
+        new Thread(()-> {
+            server = new ServerPool(Integer.parseInt(port));
+            threadServer = new Thread(server);
+            threadServer.start();
+            if (threadServer.isAlive()) {
+                UIHandler.onSpinUpSuccess();
             }
         }).start();
     }
@@ -66,29 +53,30 @@ public class Server {
             return;
         }
         isShuttingDown = true;
-        // FIXME 11/07/17: Fill this method in correctly.
-        new Thread(()->{
-            for (int i = 0; i < 3; ++i) {
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                // Regardless of whether the UIHandler is null, we want
-                // to shutdown all connections since we know we may exit.
-                if (UIHandler != null) {
-                    UIHandler.onClientDisconnected("127.0.0.1");
-                }
-            }
-            if (UIHandler != null) {
-                final boolean isSuccessful = Math.random() < 0.99f;
-                if (isSuccessful) {
-                    UIHandler.onShutdownSuccess();
-                } else {
-                    UIHandler.onShutdownFailure("You were unlucky.");
-                }
-            }
-        }).start();
+
+//        // FIXME 11/07/17: Fill this method in correctly.
+//        new Thread(()->{
+//            for (int i = 0; i < 3; ++i) {
+//                try {
+//                    Thread.sleep(2000);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+//                // Regardless of whether the UIHandler is null, we want
+//                // to shutdown all connections since we know we may exit.
+//                if (UIHandler != null) {
+//                    UIHandler.onClientDisconnected("127.0.0.1");
+//                }
+//            }
+//            if (UIHandler != null) {
+//                final boolean isSuccessful = Math.random() < 0.99f;
+//                if (isSuccessful) {
+//                    UIHandler.onShutdownSuccess();
+//                } else {
+//                    UIHandler.onShutdownFailure("You were unlucky.");
+//                }
+//            }
+//        }).start();
     }
 
     @Override
