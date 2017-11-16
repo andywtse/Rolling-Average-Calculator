@@ -1,7 +1,7 @@
 package front.cli;
 
 import back.interfacing.ServerUI;
-import back.network.Server;
+import back.network.ServerAdapter;
 import front.cli.utility.indicators.BarProgressIndicator;
 import front.cli.utility.indicators.ProgressIndicator;
 import front.network.ServerMenuState;
@@ -14,14 +14,14 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A Command Line Interface to control an instance of
- * {@link back.network.Server}. A user will launch this.
+ * {@link ServerAdapter}. A user will launch this.
  */
 public class ServerMain implements ServerUI {
 
     private static final int INPUT_DELAY_MS = 200;
 
     private List<String> log;
-    private Server server;
+    private ServerAdapter serverAdapter;
     private ProgressIndicator progressIndicator;
     private Scanner scanner;
     private ServerMenuState menuState;
@@ -37,8 +37,8 @@ public class ServerMain implements ServerUI {
     private boolean shouldQuit;
 
     private ServerMain() {
-        server = new Server();
-        server.setUIHandler(this);
+        serverAdapter = new ServerAdapter();
+        serverAdapter.setUIHandler(this);
         scanner = new Scanner(System.in);
         stateLock = new ReentrantLock();
         log = new LinkedList<>();
@@ -64,7 +64,7 @@ public class ServerMain implements ServerUI {
                     stateLock.unlock();
                 }
                 if (shouldQuit) {
-                    server.shutDown();
+                    serverAdapter.shutDown();
                     System.out.println("Good bye!");
                     return;
                 }
@@ -99,7 +99,7 @@ public class ServerMain implements ServerUI {
     /**
      * Process the current {@link ServerMenuState}. Depending on the option
      * selected by the user, there may be additional submenus, additional
-     * required information, or simple waiting until the server responds.
+     * required information, or simple waiting until the serverAdapter responds.
      */
     private void processMenuState() {
         while (!stateLock.isHeldByCurrentThread()) {
@@ -111,7 +111,7 @@ public class ServerMain implements ServerUI {
                 final String ipAddress = scanner.nextLine();
                 System.out.print("What port are you opening? ");
                 final String port = scanner.nextLine();
-                server.spinUp(ipAddress, port);
+                serverAdapter.spinUp(ipAddress, port);
                 hasNewInput = false;
                 break;
             case MainMenu:
@@ -132,7 +132,7 @@ public class ServerMain implements ServerUI {
                         System.out.println("\n Logs complete");
                         break;
                     } else if (input.equalsIgnoreCase("2")) {
-                        server.shutDown();
+                        serverAdapter.shutDown();
                         hasNewInput = false;
                         break;
                     }
@@ -151,7 +151,7 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String started = "Server started!";
+        final String started = "ServerAdapter started!";
         log.add(started);
         System.out.println(started);
         menuState = ServerMenuState.MainMenu;
@@ -164,7 +164,7 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String failure = "Could not begin server due to: " + reason;
+        final String failure = "Could not begin serverAdapter due to: " + reason;
         log.add(failure);
         System.out.println(failure);
         if (requestYesNoInput("Would you like to try again?")) {
@@ -181,7 +181,7 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String connected = "Client with IP address " + ipAddress
+        final String connected = "ClientAdapter with IP address " + ipAddress
                 + " has connected!";
         log.add(connected);
         stateLock.unlock();
@@ -192,7 +192,7 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String disconnected = "Client with IP address " + ipAddress
+        final String disconnected = "ClientAdapter with IP address " + ipAddress
                 + " has disconnected!";
         log.add(disconnected);
         stateLock.unlock();
@@ -210,7 +210,7 @@ public class ServerMain implements ServerUI {
         }
 
         if (requestYesNoInput(
-            "\nWould you like to restart the server?")) {
+            "\nWould you like to restart the serverAdapter?")) {
             menuState = ServerMenuState.RequestServerInfo;
         } else {
             shouldQuit = true;
@@ -226,7 +226,7 @@ public class ServerMain implements ServerUI {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String failure = "Failed to shutdown server due to: " + reason;
+        final String failure = "Failed to shutdown serverAdapter due to: " + reason;
         log.add(failure);
         menuState = ServerMenuState.MainMenu;
         hasNewInput = true;
@@ -269,7 +269,7 @@ public class ServerMain implements ServerUI {
     }
 
     /**
-     * Create and launch the main networking {@link Server} and
+     * Create and launch the main networking {@link ServerAdapter} and
      * show options to user.
      *
      * @param args The user inputted command line arguments

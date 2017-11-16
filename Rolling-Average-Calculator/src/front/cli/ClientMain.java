@@ -1,7 +1,7 @@
 package front.cli;
 
 import back.interfacing.ClientUI;
-import back.network.Client;
+import back.network.ClientAdapter;
 import front.cli.utility.indicators.ProgressIndicator;
 import front.cli.utility.indicators.SpinningProgressIndicator;
 import front.network.ClientMenuState;
@@ -11,13 +11,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A Command Line Interface to control an instance of
- * {@link Client}. A user will launch this.
+ * {@link ClientAdapter}. A user will launch this.
  */
 public class ClientMain implements ClientUI {
 
     private static final int INPUT_DELAY_MS = 200;
 
-    private Client client;
+    private ClientAdapter clientAdapter;
     private ProgressIndicator progressIndicator;
     private Scanner scanner;
     private ClientMenuState menuState;
@@ -34,8 +34,8 @@ public class ClientMain implements ClientUI {
     private boolean shouldQuit;
 
     private ClientMain() {
-        client = new Client();
-        client.setUIHandler(this);
+        clientAdapter = new ClientAdapter();
+        clientAdapter.setUIHandler(this);
         scanner = new Scanner(System.in);
         stateLock = new ReentrantLock();
         menuState = ClientMenuState.RequestServerInfo;
@@ -64,7 +64,7 @@ public class ClientMain implements ClientUI {
                     additionalText = null;
                 }
                 if (shouldQuit) {
-                    client.disconnect();
+                    clientAdapter.disconnect();
                     System.out.println("Good bye!");
                     return;
                 }
@@ -139,12 +139,32 @@ public class ClientMain implements ClientUI {
                 final String ipAddress = scanner.nextLine();
                 System.out.print("What port are you connecting to? ");
                 final String port = scanner.nextLine();
-                client.connect(ipAddress, port);
+                clientAdapter.connect(ipAddress, port);
                 hasNewInput = false;
                 break;
             case MainMenu:
+                System.out.println();
                 System.out.println("Main Menu:");
-                // TODO 11/07/17: Fill this in with more options.
+                System.out.println("Options:");
+                System.out.println("1) Submit Number");
+                System.out.println("2) Close Connection");
+                System.out.println(
+                        "\nWhat would you like to do? (number only) ");
+                final String input = scanner.nextLine();
+                if (input.length() == 1) {
+                    if (input.equalsIgnoreCase("1")) {
+                        System.out.println("\nEnter a number: ");
+                        final String numInput = scanner.nextLine();
+                        clientAdapter.sendMessage(numInput);
+                        break;
+                    } else if (input.equalsIgnoreCase("2")) {
+                        clientAdapter.disconnect();
+                        hasNewInput = false;
+                        break;
+                    }
+                }
+                System.out.print("Sorry, I didn't understand that. ");
+                System.out.println("Let me try again");
                 break;
             case PromptReconnect:
             case ConnectionFailed:
@@ -187,7 +207,7 @@ public class ClientMain implements ClientUI {
     }
 
     /**
-     * Create and launch the main networking {@link Client} and
+     * Create and launch the main networking {@link ClientAdapter} and
      * show options to user.
      *
      * @param args The user inputted command line arguments.

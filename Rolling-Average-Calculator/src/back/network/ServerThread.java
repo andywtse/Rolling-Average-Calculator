@@ -8,21 +8,42 @@ import java.net.Socket;
 
 public class ServerThread implements Runnable{
 
-    protected Socket clientSocket = null;
+    private Socket clientSocket = null;
+    private int clientID;
 
-    public ServerThread(Socket clientSocket){
+    /**
+     * Creates new ServerThread with a clientSocket
+     *
+     * @param clientSocket
+     */
+    public ServerThread(Socket clientSocket, int clientID){
         this.clientSocket=clientSocket;
+        this.clientID=clientID;
     }
 
+    /**
+     * Creates IO channel in the sockets to allow communication between
+     * clients and the server
+     */
     public void run(){
 
         try{
-            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(this.clientSocket.getInputStream()));
+            PrintWriter out = new PrintWriter(this.clientSocket.getOutputStream(), true);
+            String message;
 
-            out.println("Welcome to the server");
+            out.println("Welcome to the server:");
+            out.println(clientID);
+            out.flush();
 
-            //Process information
+            //TODO Process information
+
+            while(true){
+                if((message=in.readLine())!=null){
+                    System.out.println(message);
+                    System.out.flush();
+                }
+            }
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -34,4 +55,6 @@ public class ServerThread implements Runnable{
             System.out.println("Error on closing client connection");
         }
     }
+
+    //TODO Figure out how to inform Server of client commands
 }
