@@ -59,11 +59,7 @@ public class ServerAdapter {
         }
         isShuttingDown = true;
 
-        if(server.terminate()){
-            UIHandler.onShutdownSuccess();
-        }else{
-            UIHandler.onShutdownFailure("Could not not close all connections regarding server");
-        }
+        server.terminate();
     }
 
 }

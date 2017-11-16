@@ -65,11 +65,7 @@ public class ClientAdapter {
         }
         isShuttingDown = true;
 
-        if(client.terminate()){
-            UIHandler.onConnectionBroken("User terminated connection");
-        }else{
-            UIHandler.onConnectionFailure("Socket could not close");
-        }
+        client.terminate();
     }
 
     /**

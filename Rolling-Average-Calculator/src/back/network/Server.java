@@ -14,14 +14,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Server implements Runnable{
 
-    /**
-     * The interface that a user will use to communicate with this. It is
-     * preferred to communicate back to this handler on a non-UI thread.
-     */
-    private ServerUI UIHandler;
-    private boolean isShuttingDown = false;
-    private ServerPool server;
-    private Thread threadServer;
+    private int serverPort;
+    private String serverAddress;
 
     private ServerSocket serverSocket = null;
     private ExecutorService threadPool = Executors.newFixedThreadPool(4);
@@ -46,13 +40,21 @@ public class Server implements Runnable{
     /**
      * Creates new thread for every new connection from clients
      */
-    public void spinUp(final String ipAddress, final String port) {
-        new Thread(()-> {
-            server = new ServerPool(Integer.parseInt(port));
-            threadServer = new Thread(server);
-            threadServer.start();
-            if (threadServer.isAlive()) {
-                UIHandler.onSpinUpSuccess();
+    @Override
+    public void run() {
+
+        openServerSocket();
+
+        while(!isStopped){
+            Socket clientSocket;
+            try{
+                clientSocket = this.serverSocket.accept();
+            }catch (IOException e){
+                if(isStopped){
+                    System.out.println("ServerAdapter has stopped");
+                    break;
+                }
+                throw new RuntimeException("Error accepting client connection", e);
             }
             System.out.println("New client: "+clientSocket.getLocalAddress());
             int curClientID=clientId.getAndIncrement();
@@ -66,54 +68,28 @@ public class Server implements Runnable{
      * Shutdown the Server by closing the thread pool and closing
      * the sockets of Client and Servers
      */
-    public boolean terminate(){
+    public void terminate(){
 
-
+        this.isStopped = true;
 
         try {
-
             this.threadPool.shutdown();
             this.serverSocket.close();
 
             this.threadPool.awaitTermination(60000, TimeUnit.NANOSECONDS);
             System.out.println("ServerAdapter Stopped.") ;
 
-            this.isStopped = true;
-
         } catch (IOException e) {
-            //TODO Handler
+            //TODO
 //            UIHandler.onShutdownFailure("Error closing server");
             System.out.println("Error closing server");
         } catch (InterruptedException e) {
-            //TODO Handler
+            //TODO
 //            UIHandler.onShutdownFailure("Server shutdown was interrupted");
             System.out.println("Server shutdown was interrupted");
         }
-        isShuttingDown = true;
 
-//        // FIXME 11/07/17: Fill this method in correctly.
-//        new Thread(()->{
-//            for (int i = 0; i < 3; ++i) {
-//                try {
-//                    Thread.sleep(2000);
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
-//                // Regardless of whether the UIHandler is null, we want
-//                // to shutdown all connections since we know we may exit.
-//                if (UIHandler != null) {
-//                    UIHandler.onClientDisconnected("127.0.0.1");
-//                }
-//            }
-//            if (UIHandler != null) {
-//                final boolean isSuccessful = Math.random() < 0.99f;
-//                if (isSuccessful) {
-//                    UIHandler.onShutdownSuccess();
-//                } else {
-//                    UIHandler.onShutdownFailure("You were unlucky.");
-//                }
-//            }
-//        }).start();
+        //TODO Shutdown each clientSocket gracefully by alerting each client
     }
 
     /**
@@ -128,11 +104,11 @@ public class Server implements Runnable{
 
         }catch (UnknownHostException e){
 //            UIHandler.onSpinUpFailure("Could not get host " + serverAddress);
-            //TODO Handler
+            //TODO
             System.out.println("Could not get host: "+serverAddress);
         }catch (IOException e) {
 //            UIHandler.onSpinUpFailure("Could not open server port");
-            //TODO Handler
+            //TODO
             System.out.println("Could not open server port "+serverPort);
         }
 
