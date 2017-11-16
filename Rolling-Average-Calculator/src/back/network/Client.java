@@ -15,8 +15,9 @@ public class Client implements Runnable {
     private int clientPort;
     private String clientAddress;
     private Socket clientSocket;
-
     private int clientID;
+
+    private boolean isStopped = false;
 
     /**
      * Creates new Client with address and port
@@ -55,6 +56,7 @@ public class Client implements Runnable {
 
 
         } catch (IOException e) {
+            //TODO Handler
             e.printStackTrace();
         }
 
@@ -68,23 +70,27 @@ public class Client implements Runnable {
     /**
      * Shutdowns the client connection with the server
      */
-    public void terminate() {
+    public boolean terminate() {
         try {
             this.in.close();
             this.out.close();
+
 
             //TODO Send message to server to close this client with this ID
 
             this.clientSocket.close();
             if (clientSocket.isClosed()) {
-                //TODO
+                //TODO Handler
                 //UIHandler.onShutdownSuccess();
+                this.isStopped = true;
             }
         } catch (IOException e) {
-            //TODO
+            //TODO Handler
             //UIHandler.onShutdownFailure("Error in closing connection");
             System.out.println("Error in closing connection");
         }
+
+        return this.isStopped;
     }
 
     /**
@@ -95,7 +101,7 @@ public class Client implements Runnable {
             this.clientSocket = new Socket();
             this.clientSocket.connect(new InetSocketAddress(clientAddress, clientPort), 2000);
         } catch (IOException e) {
-            //TODO
+            //TODO Handler
 //            UIHandler.onConnectionFailure("Failed to open socket");
             System.out.println("Failed to open socket");
         }
