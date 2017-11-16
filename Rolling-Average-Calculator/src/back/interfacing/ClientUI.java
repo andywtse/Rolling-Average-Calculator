@@ -1,8 +1,11 @@
 package back.interfacing;
 
+import back.network.ClientAdapter;
+import back.network.ServerAdapter;
+
 /**
- * The communication interface for a {@link back.network.Client}. Any means of
- * user input must implement this to use the {@link back.network.Client}.
+ * The communication interface for a {@link ClientAdapter}. Any means of
+ * user input must implement this to use the {@link ClientAdapter}.
  */
 public interface ClientUI {
     /**
@@ -13,8 +16,8 @@ public interface ClientUI {
 
     /**
      * Callback to UI to inform user that they could not connect to
-     * the {@link back.network.Server}. Example reasons of failure
-     * include not finding the {@link back.network.Server} or it
+     * the {@link ServerAdapter}. Example reasons of failure
+     * include not finding the {@link ServerAdapter} or it
      * is not accepting any more connections.
      *
      * @param reason The reason for the failed connection.
@@ -23,8 +26,8 @@ public interface ClientUI {
 
     /**
      * Callback to UI to inform user that their connection to the
-     * {@link back.network.Server} has stopped. Example reasons of
-     * failure include the {@link back.network.Server} shutting down
+     * {@link ServerAdapter} has stopped. Example reasons of
+     * failure include the {@link ServerAdapter} shutting down
      * without warning.
      */
     void onConnectionBroken(final String reason);
