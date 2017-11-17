@@ -14,6 +14,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Server implements Runnable{
 
+    private ServerHandler SSHandler;
+
     private int serverPort;
     private String serverAddress;
 
@@ -24,6 +26,20 @@ public class Server implements Runnable{
     private Map<Integer,InetAddress> clientIdConnection = new HashMap<Integer,InetAddress>();
     private AtomicInteger clientId = new AtomicInteger(0);
 
+    /**
+     * Handler to communicate with ServerAdapter
+     */
+    public interface ServerHandler{
+
+        void onOpenSocketSuccess();
+        void onOpenSocketFailure(final String reason);
+        void onClientConnected(final String ipAddress, final int clientID);
+        void onClientDisconnected(final String ipAddress, final int clientID);
+        void onShutdownSuccess();
+        void onShutdownFailure(final String reason);
+        void onConnectionBroken(final String reason);
+
+    }
 
     /**
      * Creates new Server with address and port
@@ -36,6 +52,9 @@ public class Server implements Runnable{
         this.serverAddress = address;
     }
 
+    public void setSSHandler(final ServerHandler handler) {
+        SSHandler = handler;
+    }
 
     /**
      * Creates new thread for every new connection from clients
@@ -44,6 +63,7 @@ public class Server implements Runnable{
     public void run() {
 
         openServerSocket();
+        SSHandler.onOpenSocketSuccess();
 
         while(!isStopped){
             Socket clientSocket=null;
@@ -54,11 +74,15 @@ public class Server implements Runnable{
                     System.out.println("ServerAdapter has stopped");
                     break;
                 }
-                //TODO Handler
+                SSHandler.onOpenSocketFailure("Could not open clientSocket");
+                break;
             }
             System.out.println("New client: "+clientSocket.getLocalAddress());
             int curClientID=clientId.getAndIncrement();
             clientIdConnection.put(curClientID,clientSocket.getLocalAddress());
+
+            SSHandler.onClientConnected(clientSocket.getLocalAddress().toString(),curClientID);
+
             this.threadPool.execute(new ServerThread(clientSocket,curClientID));
         }
 
@@ -70,10 +94,7 @@ public class Server implements Runnable{
      */
     public boolean terminate(){
 
-
-
         try {
-
             this.threadPool.shutdown();
             this.serverSocket.close();
 
@@ -81,15 +102,12 @@ public class Server implements Runnable{
             System.out.println("ServerAdapter Stopped.") ;
 
             this.isStopped = true;
+            SSHandler.onShutdownSuccess();
 
         } catch (IOException e) {
-            //TODO Handler
-//            UIHandler.onShutdownFailure("Error closing server");
-            System.out.println("Error closing server");
+            SSHandler.onShutdownFailure("IOException: Error closing server");
         } catch (InterruptedException e) {
-            //TODO Handler
-//            UIHandler.onShutdownFailure("Server shutdown was interrupted");
-            System.out.println("Server shutdown was interrupted");
+            SSHandler.onShutdownFailure("Server shutdown was interrupted ");
         }
 
         //TODO Shutdown each clientSocket gracefully by alerting each client
@@ -108,13 +126,9 @@ public class Server implements Runnable{
             this.serverSocket = new ServerSocket(this.serverPort,50,address);
 
         }catch (UnknownHostException e){
-//            UIHandler.onSpinUpFailure("Could not get host " + serverAddress);
-            //TODO Handler
-            System.out.println("Could not get host: "+serverAddress);
+            SSHandler.onOpenSocketFailure("Could not get host: "+serverAddress);
         }catch (IOException e) {
-//            UIHandler.onSpinUpFailure("Could not open server port");
-            //TODO Handler
-            System.out.println("Could not open server port "+serverPort);
+            SSHandler.onOpenSocketFailure("Could not open server port "+serverPort);
         }
 
     }

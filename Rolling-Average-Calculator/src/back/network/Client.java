@@ -9,6 +9,8 @@ import java.net.Socket;
 
 public class Client implements Runnable {
 
+    private ClientHandler CCHandler;
+
     private PrintWriter out;
     private BufferedReader in;
 
@@ -18,6 +20,25 @@ public class Client implements Runnable {
     private int clientID;
 
     private boolean isStopped = false;
+
+    /**
+     * Handler to communicate between ClientAdapter and Client
+     */
+    public interface ClientHandler{
+
+        void onOpenSocketSuccess();
+        void onOpenSocketFailure(final String reason);
+        void onServerConnected(final String ipAddress);
+        void onClientDisconnected(final String ipAddress,final int clientID);
+        void onShutdownSuccess();
+        void onShutdownFailure(final String reason);
+        void onConnectionBroken(final String reason);
+        void onIOSocketFailure(final String reason);
+    }
+
+    public void setCCHandler(final ClientHandler handler) {
+        CCHandler = handler;
+    }
 
     /**
      * Creates new Client with address and port
@@ -49,15 +70,12 @@ public class Client implements Runnable {
             System.out.println(in.readLine());
             System.out.println(clientID = Integer.parseInt(in.readLine()));
 
-            out.print("Hello");
-            out.flush();
 
             //TODO Create a listener to receive messages from the server
 
 
         } catch (IOException e) {
-            //TODO Handler
-            e.printStackTrace();
+            CCHandler.onIOSocketFailure("IO Brokeded");
         }
 
     }
@@ -80,14 +98,11 @@ public class Client implements Runnable {
 
             this.clientSocket.close();
             if (clientSocket.isClosed()) {
-                //TODO Handler
-                //UIHandler.onShutdownSuccess();
+                CCHandler.onShutdownSuccess();
                 this.isStopped = true;
             }
         } catch (IOException e) {
-            //TODO Handler
-            //UIHandler.onShutdownFailure("Error in closing connection");
-            System.out.println("Error in closing connection");
+            CCHandler.onShutdownFailure("Error in closing client");
         }
 
         return this.isStopped;
@@ -101,9 +116,7 @@ public class Client implements Runnable {
             this.clientSocket = new Socket();
             this.clientSocket.connect(new InetSocketAddress(clientAddress, clientPort), 2000);
         } catch (IOException e) {
-            //TODO Handler
-//            UIHandler.onConnectionFailure("Failed to open socket");
-            System.out.println("Failed to open socket");
+            CCHandler.onOpenSocketFailure("Could not open socket of IP: "+clientAddress+ " and Port: "+clientPort);
         }
     }
 }

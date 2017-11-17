@@ -2,11 +2,13 @@ package back.network;
 
 import back.interfacing.ClientUI;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * This class is used to create a network connection to the {@link ServerAdapter}
  * for a user to enter numbers.
  */
-public class ClientAdapter {
+public class ClientAdapter implements Client.ClientHandler{
 
     /**
      * The interface that a user will use to communicate with this. It is
@@ -16,6 +18,8 @@ public class ClientAdapter {
     private Client client;
     private Thread threadClient;
     private boolean isShuttingDown =false;
+
+    private ReentrantLock stateLock;
 
     /**
      * Establish a link to the communication interface that the user
@@ -41,6 +45,7 @@ public class ClientAdapter {
         new Thread(() -> {
 
             this.client = new Client(ipAddress,Integer.parseInt(port));
+            this.client.setCCHandler(this);
             threadClient = new Thread(this.client);
             threadClient.start();
             if(threadClient.isAlive()) {
@@ -67,6 +72,7 @@ public class ClientAdapter {
 
         if(client.terminate()){
             UIHandler.onConnectionBroken("User terminated connection");
+            //TODO Terminate client itself
         }else{
             UIHandler.onConnectionFailure("Socket could not close");
         }
@@ -80,5 +86,88 @@ public class ClientAdapter {
     public void sendMessage(String msg){
         this.client.messageToServer(msg);
 
+    }
+
+    @Override
+    public void onOpenSocketSuccess() {
+        while (!stateLock.isHeldByCurrentThread()) {
+            stateLock.lock();
+        }
+        final String success = "Socket successfully opened";
+        System.out.println(success);
+        stateLock.unlock();
+    }
+
+    @Override
+    public void onOpenSocketFailure(String reason) {
+        while (!stateLock.isHeldByCurrentThread()) {
+            stateLock.lock();
+        }
+        final String failure = "Socket failed to opened due to: " + reason;
+        System.out.println(failure);
+
+        //TODO Terminate client thread immediately
+
+        stateLock.unlock();
+    }
+
+    @Override
+    public void onServerConnected(String ipAddress) {
+        while (!stateLock.isHeldByCurrentThread()) {
+            stateLock.lock();
+        }
+        final String connection = "Server IP Address: " +ipAddress+ " disconnected";
+        System.out.println(connection);
+        stateLock.unlock();
+    }
+
+    @Override
+    public void onClientDisconnected(String ipAddress,int clientID) {
+        while (!stateLock.isHeldByCurrentThread()) {
+            stateLock.lock();
+        }
+        final String connection = "ClientID: " + clientID + " - Client IP Address: " +ipAddress+ " disconnected";
+        System.out.println(connection);
+        stateLock.unlock();
+    }
+
+    @Override
+    public void onShutdownSuccess() {
+        while (!stateLock.isHeldByCurrentThread()) {
+            stateLock.lock();
+        }
+        final String success = "Client Thread successfully shutdown";
+        System.out.println(success);
+        stateLock.unlock();
+    }
+
+    @Override
+    public void onShutdownFailure(String reason) {
+        while (!stateLock.isHeldByCurrentThread()) {
+            stateLock.lock();
+        }
+        final String failure = "Client Thread failed to shutdown due to: " + reason;
+        System.out.println(failure);
+        stateLock.unlock();
+    }
+
+    @Override
+    public void onConnectionBroken(String reason) {
+        while (!stateLock.isHeldByCurrentThread()) {
+            stateLock.lock();
+        }
+        final String failure = "Client Connection broken due to: " + reason;
+        System.out.println(failure);
+        stateLock.unlock();
+    }
+
+    @Override
+    public void onIOSocketFailure(final String reason){
+        while (!stateLock.isHeldByCurrentThread()) {
+            stateLock.lock();
+        }
+        final String failure = "IO broken due to: " + reason;
+        System.out.println(failure);
+        stateLock.unlock();
     }
 }
