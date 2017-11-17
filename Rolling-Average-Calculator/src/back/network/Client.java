@@ -51,6 +51,11 @@ public class Client implements Runnable {
         this.clientAddress = address;
     }
 
+    public void messageToServer(String message) {
+        this.out.println(message);
+        this.out.flush();
+    }
+
     /**
      * Opens the socket and establishes IO with server
      */
