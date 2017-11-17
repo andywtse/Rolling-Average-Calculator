@@ -63,10 +63,17 @@ public class ServerAdapter implements Server.ServerHandler {
         }
         isShuttingDown = true;
 
-
+        //Calls server's terminate which will terminate sockets and threads
         if (server.terminate()) {
-            UIHandler.onShutdownSuccess();
-            //TODO Terminate server itself
+            if (threadServer != null) {
+                // if the thread exist, it will terminate it by throwing an Interrupt
+                threadServer.interrupt();
+                if (!threadServer.isAlive()) {
+                    UIHandler.onShutdownSuccess();
+                } else {
+                    UIHandler.onShutdownFailure("Server Thread is still alive");
+                }
+            }
         } else {
             UIHandler.onShutdownFailure("Could not not close all connections regarding server");
         }
@@ -77,7 +84,7 @@ public class ServerAdapter implements Server.ServerHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String success = "Server Socket successfully opened";
+        final String success = "SSHandler: Server Socket successfully opened";
         System.out.println(success);
         stateLock.unlock();
     }
@@ -87,10 +94,13 @@ public class ServerAdapter implements Server.ServerHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String failure = "Server Socket failed to opened due to: " + reason;
+        final String failure = "SSHandler: Server Socket failed to opened due to: " + reason;
         System.out.println(failure);
 
-        //TODO Terminate server immediately
+        if (threadServer != null) {
+            threadServer.interrupt();
+            UIHandler.onShutdownSuccess();
+        }
 
         stateLock.unlock();
     }
@@ -100,7 +110,7 @@ public class ServerAdapter implements Server.ServerHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String connection = "ClientID: " + clientID + " - Client IP Address: " + ipAddress + " connected";
+        final String connection = "SSHandler: ClientID: " + clientID + " - Client IP Address: " + ipAddress + " connected";
         System.out.println(connection);
         stateLock.unlock();
     }
@@ -110,7 +120,7 @@ public class ServerAdapter implements Server.ServerHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String connection = "ClientID: " + clientID + " - Client IP Address: " + ipAddress + " disconnected";
+        final String connection = "SSHandler: ClientID: " + clientID + " - Client IP Address: " + ipAddress + " disconnected";
         System.out.println(connection);
         stateLock.unlock();
     }
@@ -120,7 +130,7 @@ public class ServerAdapter implements Server.ServerHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String success = "Server Thread successfully shutdown";
+        final String success = "SSHandler: Server Thread successfully shutdown";
         System.out.println(success);
         stateLock.unlock();
     }
@@ -130,7 +140,7 @@ public class ServerAdapter implements Server.ServerHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String failure = "Server Thread failed to shutdown due to: " + reason;
+        final String failure = "SSHandler: Server Thread failed to shutdown due to: " + reason;
         System.out.println(failure);
         stateLock.unlock();
     }
@@ -140,7 +150,7 @@ public class ServerAdapter implements Server.ServerHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String failure = "Server Connection broken due to: " + reason;
+        final String failure = "SSHandler: Server Connection broken due to: " + reason;
         System.out.println(failure);
         stateLock.unlock();
     }

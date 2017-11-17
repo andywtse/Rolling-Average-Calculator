@@ -9,43 +9,15 @@ import java.net.Socket;
 
 public class Client implements Runnable {
 
+    private final String TERMINATE_COMMAND = ".terminate";
     private ClientHandler CCHandler;
-
     private PrintWriter out;
     private BufferedReader in;
-
     private int clientPort;
     private String clientAddress;
     private Socket clientSocket;
     private int clientID;
-
-    private boolean isStopped = false;
-
-    /**
-     * Handler to communicate between ClientAdapter and Client
-     */
-    public interface ClientHandler {
-
-        void onOpenSocketSuccess();
-
-        void onOpenSocketFailure(final String reason);
-
-        void onServerConnected(final String ipAddress);
-
-        void onClientDisconnected(final String ipAddress, final int clientID);
-
-        void onShutdownSuccess();
-
-        void onShutdownFailure(final String reason);
-
-        void onConnectionBroken(final String reason);
-
-        void onIOSocketFailure(final String reason);
-    }
-
-    public void setCCHandler(final ClientHandler handler) {
-        CCHandler = handler;
-    }
+    private volatile boolean isStopped = false;
 
     /**
      * Creates new Client with address and port
@@ -58,9 +30,14 @@ public class Client implements Runnable {
         this.clientAddress = address;
     }
 
-    public void messageToServer(String message) {
-        this.out.println(message);
-        this.out.flush();
+    /**
+     * Establish a link to the communication interface that the user
+     * will use.
+     *
+     * @param handler The communication interface being used.
+     */
+    public void setCCHandler(final ClientHandler handler) {
+        CCHandler = handler;
     }
 
     /**
@@ -71,6 +48,8 @@ public class Client implements Runnable {
         openClientSocket();
 
         try {
+            Thread.sleep(200);
+
             this.in = new BufferedReader(new InputStreamReader(this.clientSocket.getInputStream()));
             this.out = new PrintWriter(this.clientSocket.getOutputStream(), true);
 
@@ -79,7 +58,12 @@ public class Client implements Runnable {
 
 
             //TODO Create a listener to receive messages from the server
+            //TODO Figure out best way to make separate threads for read/write
 
+
+        } catch (InterruptedException e) {
+            // We've been interrupted: no more messages.
+            return;
 
         } catch (IOException e) {
             CCHandler.onIOSocketFailure("IO Brokeded");
@@ -87,21 +71,34 @@ public class Client implements Runnable {
 
     }
 
+    /**
+     * Sends a message to the server
+     *
+     * @param message String message to be sent
+     */
     public void messageToServer(String message) {
         this.out.println(message);
         this.out.flush();
+
+        if (message.equals(TERMINATE_COMMAND)) {
+            terminate(ClientAdapter.FROM_CLIENT);
+        }
     }
 
     /**
      * Shutdowns the client connection with the server
      */
-    public boolean terminate() {
+    public boolean terminate(int source) {
         try {
-            this.in.close();
-            this.out.close();
-
 
             //TODO Send message to server to close this client with this ID
+            if (source == ClientAdapter.FROM_CLIENT) {
+                this.out.println(".terminate");
+                this.out.flush();
+            }
+
+            this.in.close();
+            this.out.close();
 
             this.clientSocket.close();
             if (clientSocket.isClosed()) {
@@ -125,5 +122,36 @@ public class Client implements Runnable {
         } catch (IOException e) {
             CCHandler.onOpenSocketFailure("Could not open socket of IP: " + clientAddress + " and Port: " + clientPort);
         }
+    }
+
+    /**
+     * @return Client ID, Client Address, and Client Port
+     */
+    public String toString() {
+        return "ClientID: " + clientID
+                + "\nClient Address: " + clientAddress
+                + "\nClient Port: " + clientPort;
+    }
+
+    /**
+     * Handler to communicate between ClientAdapter and Client
+     */
+    public interface ClientHandler {
+
+        void onOpenSocketSuccess();
+
+        void onOpenSocketFailure(final String reason);
+
+        void onServerConnected(final String ipAddress);
+
+        void onClientDisconnected(final String ipAddress, final int clientID);
+
+        void onShutdownSuccess();
+
+        void onShutdownFailure(final String reason);
+
+        void onConnectionBroken(final String reason);
+
+        void onIOSocketFailure(final String reason);
     }
 }
