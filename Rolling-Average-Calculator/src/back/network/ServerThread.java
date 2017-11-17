@@ -6,7 +6,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-public class ServerThread implements Runnable{
+public class ServerThread implements Runnable {
 
     private Socket clientSocket = null;
     private int clientID;
@@ -16,18 +16,18 @@ public class ServerThread implements Runnable{
      *
      * @param clientSocket
      */
-    public ServerThread(Socket clientSocket, int clientID){
-        this.clientSocket=clientSocket;
-        this.clientID=clientID;
+    public ServerThread(Socket clientSocket, int clientID) {
+        this.clientSocket = clientSocket;
+        this.clientID = clientID;
     }
 
     /**
      * Creates IO channel in the sockets to allow communication between
      * clients and the server
      */
-    public void run(){
+    public void run() {
 
-        try{
+        try {
             BufferedReader in = new BufferedReader(new InputStreamReader(this.clientSocket.getInputStream()));
             PrintWriter out = new PrintWriter(this.clientSocket.getOutputStream(), true);
             String message;
@@ -38,8 +38,8 @@ public class ServerThread implements Runnable{
 
             //TODO Process information
 
-            while(true){
-                if((message=in.readLine())!=null){
+            while (true) {
+                if ((message = in.readLine()) != null) {
                     System.out.println(message);
                     System.out.flush();
                 }
@@ -51,7 +51,7 @@ public class ServerThread implements Runnable{
 
         try {
             this.clientSocket.close();
-        }catch (IOException e){
+        } catch (IOException e) {
             System.out.println("Error on closing client connection");
         }
     }

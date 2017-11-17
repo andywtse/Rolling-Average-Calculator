@@ -24,15 +24,22 @@ public class Client implements Runnable {
     /**
      * Handler to communicate between ClientAdapter and Client
      */
-    public interface ClientHandler{
+    public interface ClientHandler {
 
         void onOpenSocketSuccess();
+
         void onOpenSocketFailure(final String reason);
+
         void onServerConnected(final String ipAddress);
-        void onClientDisconnected(final String ipAddress,final int clientID);
+
+        void onClientDisconnected(final String ipAddress, final int clientID);
+
         void onShutdownSuccess();
+
         void onShutdownFailure(final String reason);
+
         void onConnectionBroken(final String reason);
+
         void onIOSocketFailure(final String reason);
     }
 
@@ -116,7 +123,7 @@ public class Client implements Runnable {
             this.clientSocket = new Socket();
             this.clientSocket.connect(new InetSocketAddress(clientAddress, clientPort), 2000);
         } catch (IOException e) {
-            CCHandler.onOpenSocketFailure("Could not open socket of IP: "+clientAddress+ " and Port: "+clientPort);
+            CCHandler.onOpenSocketFailure("Could not open socket of IP: " + clientAddress + " and Port: " + clientPort);
         }
     }
 }
