@@ -10,6 +10,8 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class ClientAdapter implements Client.ClientHandler {
 
+    public static final int FROM_CLIENT = 1;
+    public static final int FROM_SERVER = 2;
     /**
      * The interface that a user will use to communicate with this. It is
      * preferred to communicate back to this handler on a non-UI thread.
@@ -18,7 +20,6 @@ public class ClientAdapter implements Client.ClientHandler {
     private Client client;
     private Thread threadClient;
     private boolean isShuttingDown = false;
-
     private ReentrantLock stateLock;
 
     /**
@@ -43,7 +44,7 @@ public class ClientAdapter implements Client.ClientHandler {
         System.out.println("Attempting to connect to " + ipAddress + ":" + port);
 
         new Thread(() -> {
-
+            stateLock = new ReentrantLock();
             this.client = new Client(ipAddress, Integer.parseInt(port));
             this.client.setCCHandler(this);
             threadClient = new Thread(this.client);
@@ -70,9 +71,16 @@ public class ClientAdapter implements Client.ClientHandler {
         }
         isShuttingDown = true;
 
-        if (client.terminate()) {
-            UIHandler.onConnectionBroken("User terminated connection");
-            //TODO Terminate client itself
+        if (client.terminate(FROM_CLIENT)) {
+            if (threadClient != null) {
+                threadClient.interrupt();
+                if (threadClient.isAlive()) {
+                    UIHandler.onConnectionBroken("User terminated connection");
+                } else {
+                    UIHandler.onConnectionBroken("Failed to terminate connection");
+                }
+            }
+
         } else {
             UIHandler.onConnectionFailure("Socket could not close");
         }
@@ -93,7 +101,7 @@ public class ClientAdapter implements Client.ClientHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String success = "Socket successfully opened";
+        final String success = "CCHandler: Socket successfully opened";
         System.out.println(success);
         stateLock.unlock();
     }
@@ -103,7 +111,7 @@ public class ClientAdapter implements Client.ClientHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String failure = "Socket failed to opened due to: " + reason;
+        final String failure = "CCHandler: Socket failed to opened due to: " + reason;
         System.out.println(failure);
 
         //TODO Terminate client thread immediately
@@ -116,7 +124,7 @@ public class ClientAdapter implements Client.ClientHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String connection = "Server IP Address: " + ipAddress + " disconnected";
+        final String connection = "CCHandler: Server IP Address: " + ipAddress + " disconnected";
         System.out.println(connection);
         stateLock.unlock();
     }
@@ -126,7 +134,7 @@ public class ClientAdapter implements Client.ClientHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String connection = "ClientID: " + clientID + " - Client IP Address: " + ipAddress + " disconnected";
+        final String connection = "CCHandler: ClientID: " + clientID + " - Client IP Address: " + ipAddress + " disconnected";
         System.out.println(connection);
         stateLock.unlock();
     }
@@ -136,7 +144,7 @@ public class ClientAdapter implements Client.ClientHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String success = "Client Thread successfully shutdown";
+        final String success = "CCHandler: Client Thread successfully shutdown";
         System.out.println(success);
         stateLock.unlock();
     }
@@ -146,7 +154,7 @@ public class ClientAdapter implements Client.ClientHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String failure = "Client Thread failed to shutdown due to: " + reason;
+        final String failure = "CCHandler: Client Thread failed to shutdown due to: " + reason;
         System.out.println(failure);
         stateLock.unlock();
     }
@@ -156,7 +164,7 @@ public class ClientAdapter implements Client.ClientHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String failure = "Client Connection broken due to: " + reason;
+        final String failure = "CCHandler: Client Connection broken due to: " + reason;
         System.out.println(failure);
         stateLock.unlock();
     }
@@ -166,7 +174,7 @@ public class ClientAdapter implements Client.ClientHandler {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String failure = "IO broken due to: " + reason;
+        final String failure = "CCHandler: IO broken due to: " + reason;
         System.out.println(failure);
         stateLock.unlock();
     }
