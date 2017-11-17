@@ -9,7 +9,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * link to. It will perform various actions and communicate back to the
  * {@link ClientAdapter}.
  */
-public class ServerAdapter implements Server.ServerHandler{
+public class ServerAdapter implements Server.ServerHandler {
 
     /**
      * The interface that a user will use to communicate with this. It is
@@ -25,6 +25,7 @@ public class ServerAdapter implements Server.ServerHandler{
     /**
      * Establish a link to the communication interface that the user
      * will use.
+     *
      * @param handler The communication interface being used.
      */
     public void setUIHandler(final ServerUI handler) {
@@ -35,18 +36,18 @@ public class ServerAdapter implements Server.ServerHandler{
      * Create the network server and start listening for {@link ClientAdapter}s.
      *
      * @param ipAddress The IPv4 or IPv6 address to create the network server.
-     * @param port The port number to open for the network server.
+     * @param port      The port number to open for the network server.
      */
     public void spinUp(final String ipAddress, final String port) {
-        new Thread(()-> {
+        new Thread(() -> {
             stateLock = new ReentrantLock();
-            server = new Server(ipAddress,Integer.parseInt(port));
+            server = new Server(ipAddress, Integer.parseInt(port));
             server.setSSHandler(this);
             threadServer = new Thread(server);
             threadServer.start();
             if (threadServer.isAlive()) {
                 UIHandler.onSpinUpSuccess();
-            }else{
+            } else {
                 UIHandler.onSpinUpFailure("ServerAdapter thread did not start");
             }
         }).start();
@@ -63,11 +64,10 @@ public class ServerAdapter implements Server.ServerHandler{
         isShuttingDown = true;
 
 
-
-        if(server.terminate()){
+        if (server.terminate()) {
             UIHandler.onShutdownSuccess();
             //TODO Terminate server itself
-        }else{
+        } else {
             UIHandler.onShutdownFailure("Could not not close all connections regarding server");
         }
     }
@@ -100,17 +100,17 @@ public class ServerAdapter implements Server.ServerHandler{
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String connection = "ClientID: " + clientID + " - Client IP Address: " +ipAddress+ " connected";
+        final String connection = "ClientID: " + clientID + " - Client IP Address: " + ipAddress + " connected";
         System.out.println(connection);
         stateLock.unlock();
     }
 
     @Override
-    public void onClientDisconnected(String ipAddress,int clientID) {
+    public void onClientDisconnected(String ipAddress, int clientID) {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String connection = "ClientID: " + clientID + " - Client IP Address: " +ipAddress+ " disconnected";
+        final String connection = "ClientID: " + clientID + " - Client IP Address: " + ipAddress + " disconnected";
         System.out.println(connection);
         stateLock.unlock();
     }

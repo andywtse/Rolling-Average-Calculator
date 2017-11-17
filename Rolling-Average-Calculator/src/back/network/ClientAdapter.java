@@ -8,7 +8,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * This class is used to create a network connection to the {@link ServerAdapter}
  * for a user to enter numbers.
  */
-public class ClientAdapter implements Client.ClientHandler{
+public class ClientAdapter implements Client.ClientHandler {
 
     /**
      * The interface that a user will use to communicate with this. It is
@@ -17,7 +17,7 @@ public class ClientAdapter implements Client.ClientHandler{
     private ClientUI UIHandler;
     private Client client;
     private Thread threadClient;
-    private boolean isShuttingDown =false;
+    private boolean isShuttingDown = false;
 
     private ReentrantLock stateLock;
 
@@ -44,13 +44,13 @@ public class ClientAdapter implements Client.ClientHandler{
 
         new Thread(() -> {
 
-            this.client = new Client(ipAddress,Integer.parseInt(port));
+            this.client = new Client(ipAddress, Integer.parseInt(port));
             this.client.setCCHandler(this);
             threadClient = new Thread(this.client);
             threadClient.start();
-            if(threadClient.isAlive()) {
+            if (threadClient.isAlive()) {
                 this.UIHandler.onConnectionSuccess();
-            }else {
+            } else {
                 this.UIHandler.onConnectionFailure("Could not start Client thread");
             }
 
@@ -70,10 +70,10 @@ public class ClientAdapter implements Client.ClientHandler{
         }
         isShuttingDown = true;
 
-        if(client.terminate()){
+        if (client.terminate()) {
             UIHandler.onConnectionBroken("User terminated connection");
             //TODO Terminate client itself
-        }else{
+        } else {
             UIHandler.onConnectionFailure("Socket could not close");
         }
     }
@@ -83,7 +83,7 @@ public class ClientAdapter implements Client.ClientHandler{
      *
      * @param msg The String message sent by the client
      */
-    public void sendMessage(String msg){
+    public void sendMessage(String msg) {
         this.client.messageToServer(msg);
 
     }
@@ -116,17 +116,17 @@ public class ClientAdapter implements Client.ClientHandler{
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String connection = "Server IP Address: " +ipAddress+ " disconnected";
+        final String connection = "Server IP Address: " + ipAddress + " disconnected";
         System.out.println(connection);
         stateLock.unlock();
     }
 
     @Override
-    public void onClientDisconnected(String ipAddress,int clientID) {
+    public void onClientDisconnected(String ipAddress, int clientID) {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String connection = "ClientID: " + clientID + " - Client IP Address: " +ipAddress+ " disconnected";
+        final String connection = "ClientID: " + clientID + " - Client IP Address: " + ipAddress + " disconnected";
         System.out.println(connection);
         stateLock.unlock();
     }
@@ -162,7 +162,7 @@ public class ClientAdapter implements Client.ClientHandler{
     }
 
     @Override
-    public void onIOSocketFailure(final String reason){
+    public void onIOSocketFailure(final String reason) {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
