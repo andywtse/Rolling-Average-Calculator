@@ -1,4 +1,4 @@
-package front.cli.utility.indicators;
+package front.cli.indicators;
 
 /**
  * A {@link ProgressIndicator} intended to take a single character's width. A bar "spins" clockwise starting from a
@@ -6,19 +6,11 @@ package front.cli.utility.indicators;
  */
 public class SpinningProgressIndicator extends ProgressIndicator {
     
-    /**
-     * The direction of the "right-facing point". In the case of North, the "right-facing point" is the top.
-     */
-    private enum SpinState {
-        North, NorthEast, East, SouthEast
-    }
-    
-    private SpinState state;
+    private SpinState state = SpinState.North;
     
     @Override
     public void begin() {
         
-        state = SpinState.North;
         next();
     }
     
@@ -60,5 +52,12 @@ public class SpinningProgressIndicator extends ProgressIndicator {
     public void stop() {
         
         System.out.print("\r");
+    }
+    
+    /**
+     * The direction of the "right-facing point". In the case of North, the "right-facing point" is the top.
+     */
+    private enum SpinState {
+        North, NorthEast, East, SouthEast
     }
 }

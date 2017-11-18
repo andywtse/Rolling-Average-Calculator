@@ -2,9 +2,8 @@ package front.cli;
 
 import back.interfacing.ServerUI;
 import back.network.ServerAdapter;
-import front.cli.utility.indicators.BarProgressIndicator;
-import front.cli.utility.indicators.ProgressIndicator;
-import front.network.ServerMenuState;
+import front.cli.indicators.BarProgressIndicator;
+import front.cli.indicators.ProgressIndicator;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -16,95 +15,87 @@ import java.util.concurrent.locks.ReentrantLock;
  * A Command Line Interface to control an instance of
  * {@link ServerAdapter}. A user will launch this.
  */
-public class ServerMain implements ServerUI {
-
+public class ServerLauncher implements ServerUI {
+    
     private static final int INPUT_DELAY_MS = 200;
-
-    private List<String> log;
-    private ServerAdapter serverAdapter;
+    private List<String> log = new LinkedList<>();
+    private ServerAdapter serverAdapter = new ServerAdapter();
     private ProgressIndicator progressIndicator;
-    private Scanner scanner;
-    private ServerMenuState menuState;
-
+    private Scanner scanner = new Scanner(System.in);
+    private MenuState menuState = MenuState.RequestServerInfo;
     /**
      * This lock should be used any time the
-     * {@link front.network.ServerMenuState} may change, which is likely any
+     * {@link MenuState} may change, which is likely any
      * time the user is asked for input.
      */
-    private ReentrantLock stateLock;
-
-    private boolean hasNewInput;
-    private boolean shouldQuit;
-
-    private ServerMain() {
-        serverAdapter = new ServerAdapter();
+    private ReentrantLock stateLock = new ReentrantLock();
+    private boolean hasNewInput = true;
+    private boolean shouldQuit = false;
+    private ServerLauncher() {
+        
         serverAdapter.setUIHandler(this);
-        scanner = new Scanner(System.in);
-        stateLock = new ReentrantLock();
-        log = new LinkedList<>();
-        menuState = ServerMenuState.RequestServerInfo;
-        hasNewInput = true;
-        shouldQuit = false;
+        final List<Character> list = new ArrayList<>();
+        list.add('-');
+        list.add('=');
+        progressIndicator = new BarProgressIndicator(list);
     }
-
+    
+    /**
+     * Create and launch the main networking {@link ServerAdapter} and
+     * show options to user.
+     *
+     * @param args The user inputted command line arguments
+     */
+    public static void main( final String args[] ) {
+        
+        System.out.println("Hello, World!");
+        new ServerLauncher().startCommunicating();
+    }
+    
     /**
      * Perform I/O with user.
-     *
+     * <p>
      * This thread is kept alive to keep references alive and handle all UI
      * operations.
      */
     private void startCommunicating() {
-        while (true) {
+        
+        do {
+            while (!stateLock.isHeldByCurrentThread()) {
+                stateLock.lock();
+            }
             if (hasNewInput) {
                 if (progressIndicator != null) {
-                    while (!stateLock.isHeldByCurrentThread()) {
-                        stateLock.lock();
-                    }
                     progressIndicator.stop();
-                    stateLock.unlock();
-                }
-                if (shouldQuit) {
-                    serverAdapter.shutDown();
-                    System.out.println("Good bye!");
-                    return;
                 }
                 processMenuState();
             } else {
-                while (!stateLock.isHeldByCurrentThread()) {
-                    stateLock.lock();
-                }
                 if (!shouldQuit) {
-                    if (progressIndicator == null) {
-                        final List<Character> list = new ArrayList<>(2);
-                        list.add('-');
-                        list.add('=');
-                        progressIndicator = new BarProgressIndicator(list);
-                        progressIndicator.begin();
-                    } else {
-                        progressIndicator.next();
-                    }
+                    progressIndicator.next();
                 }
+            }
+            if (stateLock.isHeldByCurrentThread()) {
                 stateLock.unlock();
             }
-
+            
             try {
                 Thread.sleep(INPUT_DELAY_MS);
             } catch (InterruptedException e) {
                 System.err.println("Something went wrong!");
                 System.err.println(e.getLocalizedMessage());
             }
-        }
+        } while (!shouldQuit);
+        serverAdapter.shutDown();
+        System.out.println("Good bye!");
     }
-
+    
     /**
-     * Process the current {@link ServerMenuState}. Depending on the option
+     * Process the current {@link MenuState}. Depending on the option
      * selected by the user, there may be additional submenus, additional
      * required information, or simple waiting until the serverAdapter responds.
      */
     private void processMenuState() {
-        while (!stateLock.isHeldByCurrentThread()) {
-            stateLock.lock();
-        }
+        
         switch (menuState) {
             case RequestServerInfo:
                 System.out.print("What is your current IP address? ");
@@ -120,14 +111,13 @@ public class ServerMain implements ServerUI {
                 System.out.println("Options:");
                 System.out.println("1) Output logs");
                 System.out.println("2) Shutdown");
-                System.out.println(
-                    "\nWhat would you like to do? (number only) ");
+                System.out.println("\nWhat would you like to do? (number only) ");
                 final String input = scanner.nextLine();
                 if (input.length() == 1) {
                     if (input.equalsIgnoreCase("1")) {
                         System.out.println("Logs:\n");
                         for (int i = 0; i < log.size(); ++i) {
-                            System.out.println((i + 1) + ") " + log.get(i));
+                            System.out.println(( i + 1 ) + ") " + log.get(i));
                         }
                         System.out.println("\n Logs complete");
                         break;
@@ -137,81 +127,79 @@ public class ServerMain implements ServerUI {
                         break;
                     }
                 }
-                System.out.print("Sorry, I didn't understand that. ");
+                System.out.println("Sorry, I didn't understand that.");
                 System.out.println("Let me try again");
                 break;
         }
-        if (stateLock.isHeldByCurrentThread()) {
-            stateLock.unlock();
-        }
     }
-
+    
     @Override
     public void onSpinUpSuccess() {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
         final String started = "ServerAdapter started!";
         log.add(started);
         System.out.println(started);
-        menuState = ServerMenuState.MainMenu;
+        menuState = MenuState.MainMenu;
         hasNewInput = true;
         stateLock.unlock();
     }
-
+    
     @Override
-    public void onSpinUpFailure(final String reason) {
+    public void onSpinUpFailure( final String reason ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
         final String failure = "Could not begin serverAdapter due to: " + reason;
         log.add(failure);
-        System.out.println(failure);
+        System.err.println(failure);
         if (requestYesNoInput("Would you like to try again?")) {
-            menuState = ServerMenuState.RequestServerInfo;
+            menuState = MenuState.RequestServerInfo;
         } else {
             shouldQuit = true;
         }
         hasNewInput = true;
         stateLock.unlock();
     }
-
+    
     @Override
-    public void onClientConnected(final String ipAddress) {
+    public void onClientConnected( final String ipAddress ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String connected = "ClientAdapter with IP address " + ipAddress
-                + " has connected!";
-        log.add(connected);
+        log.add("ClientAdapter with IP address " + ipAddress + " has connected!");
         stateLock.unlock();
     }
-
+    
     @Override
-    public void onClientDisconnected(final String ipAddress) {
+    public void onClientDisconnected( final String ipAddress ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String disconnected = "ClientAdapter with IP address " + ipAddress
-                + " has disconnected!";
-        log.add(disconnected);
+        log.add("ClientAdapter with IP address " + ipAddress + " has disconnected!");
         stateLock.unlock();
     }
-
+    
     @Override
     public void onShutdownSuccess() {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
         final String success = "All connections have stopped.";
         log.add(success);
+        System.out.println(success);
         if (shouldQuit) {
             return;
         }
-
-        if (requestYesNoInput(
-            "\nWould you like to restart the serverAdapter?")) {
-            menuState = ServerMenuState.RequestServerInfo;
+        
+        if (requestYesNoInput("\nWould you like to restart the serverAdapter?")) {
+            menuState = MenuState.RequestServerInfo;
         } else {
             shouldQuit = true;
         }
@@ -220,37 +208,41 @@ public class ServerMain implements ServerUI {
             stateLock.unlock();
         }
     }
-
+    
     @Override
-    public void onShutdownFailure(final String reason) {
+    public void onShutdownFailure( final String reason ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
         final String failure = "Failed to shutdown serverAdapter due to: " + reason;
         log.add(failure);
-        menuState = ServerMenuState.MainMenu;
+        System.err.println(failure);
+        menuState = MenuState.MainMenu;
+        shouldQuit = false;
         hasNewInput = true;
         stateLock.unlock();
     }
-
+    
     @Override
-    public void onConnectionBroken(final String reason) {
+    public void onConnectionBroken( final String reason ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
-        final String connectionBroken = "Connection to a client has failed due to "
-                + reason;
+        final String connectionBroken = "Connection to a client has failed due to " + reason;
         log.add(connectionBroken);
         stateLock.unlock();
     }
-
+    
     /**
      * Request a proper "y" or "n" answer from the user for a specific response.
      * Everyone who calls this should attempt to unlock the stateLock.
      *
      * @param requestMessage The message to request a "Yes" or "No" answer.
      */
-    private boolean requestYesNoInput(final String requestMessage) {
+    private boolean requestYesNoInput( final String requestMessage ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
@@ -267,15 +259,13 @@ public class ServerMain implements ServerUI {
             System.out.println("Sorry, I couldn't understand you. Let me try again.");
         } while (true);
     }
-
+    
     /**
-     * Create and launch the main networking {@link ServerAdapter} and
-     * show options to user.
-     *
-     * @param args The user inputted command line arguments
+     * The menu state of the user-facing server. This is used to determine
+     * what messages to show to the user and what kind of interaction to
+     * request from them.
      */
-    public static void main(final String args[]) {
-        System.out.println("Hello, World!");
-        new ServerMain().startCommunicating();
+    private enum MenuState {
+        RequestServerInfo, MainMenu,
     }
 }

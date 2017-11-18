@@ -1,4 +1,4 @@
-package front.cli.utility.indicators;
+package front.cli.indicators;
 
 import java.util.List;
 
@@ -12,8 +12,8 @@ public class BarProgressIndicator extends ProgressIndicator {
     
     private List<Character> displayCharacters;
     
-    private int currentBarCount;
-    private int currentBarIndex;
+    private int currentBarCount = 0;
+    private int currentBarIndex = 0;
     
     private boolean shouldAlternate;
     
@@ -26,12 +26,6 @@ public class BarProgressIndicator extends ProgressIndicator {
     @Override
     public void begin() {
         
-        if (displayCharacters.size() == 0) {
-            return;
-        }
-        
-        currentBarCount = 0;
-        currentBarIndex = 0;
         next();
     }
     
