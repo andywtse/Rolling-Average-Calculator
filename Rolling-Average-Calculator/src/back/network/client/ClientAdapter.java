@@ -1,6 +1,7 @@
-package back.network;
+package back.network.client;
 
 import back.interfacing.ClientUI;
+import back.network.server.ServerAdapter;
 
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -10,8 +11,8 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class ClientAdapter implements Client.ClientHandler {
 
-    public static final int FROM_CLIENT = 1;
-    public static final int FROM_SERVER = 2;
+    public static final int WAIT_DELAY_MS = 1000;
+    
     /**
      * The interface that a user will use to communicate with this. It is
      * preferred to communicate back to this handler on a non-UI thread.
@@ -63,24 +64,30 @@ public class ClientAdapter implements Client.ClientHandler {
      * Close any existing connections and clean up variables so any connected
      * {@link ServerAdapter} will not throw exceptions when this program ends.
      */
-    public void disconnect() {
+    public synchronized void disconnect() {
 
+        //TODO Send disconnect to server
 
         if (isShuttingDown) {
             return;
         }
         isShuttingDown = true;
-
-        if (client.terminate(FROM_CLIENT)) {
+        
+        if (client.terminate()) {
             if (threadClient != null) {
                 threadClient.interrupt();
+                try {
+                    this.wait(WAIT_DELAY_MS);
+                    //TODO Handler needs to inform ClientLauncher that disconnect was success
+                } catch (InterruptedException e){
+                    UIHandler.onConnectionBroken("Closure of client thread was interrupted");
+                }
                 if (threadClient.isAlive()) {
                     UIHandler.onConnectionBroken("User terminated connection");
                 } else {
                     UIHandler.onConnectionBroken("Failed to terminate connection");
                 }
             }
-
         } else {
             UIHandler.onConnectionFailure("Socket could not close");
         }
@@ -89,11 +96,21 @@ public class ClientAdapter implements Client.ClientHandler {
     /**
      * Sends a message to the server from the client
      *
-     * @param msg The String message sent by the client
+     * @param command The command message sent by the client
      */
-    public void sendMessage(String msg) {
-        this.client.messageToServer(msg);
+    public void sendCommand(String command, String range) {
+        //TODO Check if commands are valid or if the message is purely numbers
+        this.client.commandToServer(command, range);
 
+    }
+
+    /**
+     * Sends a value to the server from the client
+     *
+     * @param value The value sent by the client
+     */
+    public void sendValue(int value){
+        this.client.valueToServer(value);
     }
 
     @Override
@@ -130,7 +147,7 @@ public class ClientAdapter implements Client.ClientHandler {
     }
 
     @Override
-    public void onClientDisconnected(String ipAddress, int clientID) {
+    public void onClientDisconnected(String ipAddress, long clientID) {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
@@ -165,7 +182,7 @@ public class ClientAdapter implements Client.ClientHandler {
             stateLock.lock();
         }
         final String failure = "CCHandler: Client Connection broken due to: " + reason;
-        System.out.println(failure);
+        UIHandler.onConnectionBroken(failure);
         stateLock.unlock();
     }
 

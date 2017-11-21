@@ -1,7 +1,7 @@
 package back.interfacing;
 
-import back.network.ClientAdapter;
-import back.network.ServerAdapter;
+import back.network.client.ClientAdapter;
+import back.network.server.ServerAdapter;
 
 /**
  * The communication interface for a {@link ClientAdapter}. Any means of

@@ -1,7 +1,7 @@
 package front.cli;
 
 import back.interfacing.ClientUI;
-import back.network.ClientAdapter;
+import back.network.client.ClientAdapter;
 import front.cli.indicators.ProgressIndicator;
 import front.cli.indicators.SpinningProgressIndicator;
 
@@ -131,9 +131,9 @@ public class ClientLauncher implements ClientUI {
         switch (menuState) {
             case RequestServerInfo:
                 System.out.print("What is the IP address you want to connect to? ");
-                final String ipAddress = scanner.nextLine();
+                final String ipAddress = "127.0.0.1"; //scanner.nextLine();
                 System.out.print("What port are you connecting to? ");
-                final String port = scanner.nextLine();
+                final String port = "8080"; //scanner.nextLine();
                 clientAdapter.connect(ipAddress, port);
                 hasNewInput = false;
                 break;
@@ -141,17 +141,42 @@ public class ClientLauncher implements ClientUI {
                 System.out.println();
                 System.out.println("Main Menu:");
                 System.out.println("Options:");
-                System.out.println("1) Submit Number");
-                System.out.println("2) Close Connection");
+                System.out.println("1) Submit number");
+                System.out.println("2) Request average of Server");
+                System.out.println("3) Request average of your  numbers");
+                System.out.println("4) Request all Submissions from you");
+                System.out.println("5) Request all Submissions from everyone on the server");
+                System.out.println("6) Request count of your submissions");
+                System.out.println("7) Close connection");
                 System.out.println("\nWhat would you like to do? (number only) ");
                 final String input = scanner.nextLine();
                 if (input.length() == 1) {
                     if (input.equalsIgnoreCase("1")) {
                         System.out.println("\nEnter a number: ");
-                        final String numInput = scanner.nextLine();
-                        clientAdapter.sendMessage(numInput);
+                        final int numInput= scanner.nextInt();;
+//                        while (!scanner.hasNextInt()) {
+//                            System.out.println("That's not a number!");
+//                            scanner.next(); // this is important!
+//                        }
+//                        numInput = scanner.nextInt();
+                        clientAdapter.sendValue(numInput);
                         break;
                     } else if (input.equalsIgnoreCase("2")) {
+                        clientAdapter.sendCommand(".average",".all");
+                        break;
+                    } else if (input.equalsIgnoreCase("3")) {
+                        clientAdapter.sendCommand(".average", ".self");
+                        break;
+                    } else if (input.equalsIgnoreCase("4")) {
+                        clientAdapter.sendCommand(".history",".self");
+                        break;
+                    } else if (input.equalsIgnoreCase("5")) {
+                        clientAdapter.sendCommand(".history",".all");
+                        break;
+                    } else if (input.equalsIgnoreCase("6")) {
+                        clientAdapter.sendCommand(".count",".self");
+                        break;
+                    } else if (input.equalsIgnoreCase("7")) {
                         clientAdapter.disconnect();
                         hasNewInput = false;
                         break;

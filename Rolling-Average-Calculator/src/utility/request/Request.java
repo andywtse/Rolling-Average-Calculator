@@ -4,10 +4,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Request {
+public class Request implements Serializable{
     
     private static final String ID_KEY = "ID";
     private static final String TOPIC_KEY = "TOPIC";

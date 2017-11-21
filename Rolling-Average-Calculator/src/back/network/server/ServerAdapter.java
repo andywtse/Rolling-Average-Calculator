@@ -1,7 +1,9 @@
-package back.network;
+package back.network.server;
 
 import back.interfacing.ServerUI;
+import back.network.client.ClientAdapter;
 
+import java.io.InterruptedIOException;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -15,6 +17,8 @@ public class ServerAdapter implements Server.ServerHandler {
      * The interface that a user will use to communicate with this. It is
      * preferred to communicate back to this handler on a non-UI thread.
      */
+    private static final int WAIT_DELAY_MS = 1000;
+    
     private ServerUI UIHandler;
     private boolean isShuttingDown = false;
     private Server server;
@@ -57,7 +61,7 @@ public class ServerAdapter implements Server.ServerHandler {
      * Go through all {@link ClientAdapter}'s and disconnect from them safely so
      * they can exit properly.
      */
-    public void shutDown() {
+    public synchronized void shutDown() {
         if (isShuttingDown) {
             return;
         }
@@ -68,6 +72,11 @@ public class ServerAdapter implements Server.ServerHandler {
             if (threadServer != null) {
                 // if the thread exist, it will terminate it by throwing an Interrupt
                 threadServer.interrupt();
+                try {
+                    this.wait(WAIT_DELAY_MS);
+                } catch(InterruptedException e){
+                    System.out.println("ServerAdapter was interrupted during server shutdown");
+                }
                 if (!threadServer.isAlive()) {
                     UIHandler.onShutdownSuccess();
                 } else {
@@ -99,14 +108,21 @@ public class ServerAdapter implements Server.ServerHandler {
 
         if (threadServer != null) {
             threadServer.interrupt();
-            UIHandler.onShutdownSuccess();
+            try {
+                this.wait(WAIT_DELAY_MS);
+                if (threadServer.isAlive()) {
+                    UIHandler.onShutdownSuccess();
+                }
+            }catch(InterruptedException e){
+                System.out.println("ServerAdapter was interrupted during server termination");
+            }
         }
 
         stateLock.unlock();
     }
 
     @Override
-    public void onClientConnected(String ipAddress, int clientID) {
+    public void onClientConnected(String ipAddress, long clientID) {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
@@ -116,7 +132,7 @@ public class ServerAdapter implements Server.ServerHandler {
     }
 
     @Override
-    public void onClientDisconnected(String ipAddress, int clientID) {
+    public void onClientDisconnected(String ipAddress, long clientID) {
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }

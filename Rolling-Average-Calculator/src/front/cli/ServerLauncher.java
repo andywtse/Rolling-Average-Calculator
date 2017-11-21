@@ -1,7 +1,7 @@
 package front.cli;
 
 import back.interfacing.ServerUI;
-import back.network.ServerAdapter;
+import back.network.server.ServerAdapter;
 import front.cli.indicators.BarProgressIndicator;
 import front.cli.indicators.ProgressIndicator;
 
@@ -99,9 +99,9 @@ public class ServerLauncher implements ServerUI {
         switch (menuState) {
             case RequestServerInfo:
                 System.out.print("What is your current IP address? ");
-                final String ipAddress = scanner.nextLine();
+                final String ipAddress = "127.0.0.1";//scanner.nextLine();
                 System.out.print("What port are you opening? ");
-                final String port = scanner.nextLine();
+                final String port = "8080";//scanner.nextLine();
                 serverAdapter.spinUp(ipAddress, port);
                 hasNewInput = false;
                 break;

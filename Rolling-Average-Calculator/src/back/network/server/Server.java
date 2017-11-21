@@ -1,10 +1,10 @@
-package back.network;
+package back.network.server;
+
+import back.network.server.ClientConnection;
+import utility.request.Request;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,21 +14,27 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
-public class Server implements Runnable {
+public class Server implements Runnable,ClientConnection.ClientConnectionHandler {
 
-    public static final int TO_CLIENT = 1;
-    public static final int TO_SERVER = 2;
+    private static final int TIMEOUT_DELAY_MS = 2000;
+    private static final int WAIT_DELAY_MS = 1000;
+    
     private ServerHandler SSHandler;
     private int serverPort;
     private String serverAddress;
     private ServerSocket serverSocket = null;
     private ExecutorService threadPool = Executors.newFixedThreadPool(4);
     private volatile boolean isStopped = false;
-    private Map<Integer, InetAddress> clientIdConnection = new HashMap<Integer, InetAddress>();
-    private AtomicInteger clientId = new AtomicInteger(0);
-    private List<Future> listOfFutureServerThread = new ArrayList<>();
-    private List<ServerThread> listOfServerThread = new ArrayList<>();
+    
+    private Map<Long, ClientConnection> clientIdConnection = new HashMap<Long, ClientConnection>();
+    private AtomicLong clientId = new AtomicLong(0);
+    private List<Integer> listOfClientSubmission = new ArrayList<>();
+    
+    private double sum = 0;
+    private int count = 0;
+    private double average;
 
     /**
      * Creates new Server with address and port
@@ -42,8 +48,7 @@ public class Server implements Runnable {
     }
 
     /**
-     * Establish a link to the communication interface that the user
-     * will use.
+     * Establish a link to the ServerAdapter
      *
      * @param handler The communication interface being used.
      */
@@ -59,12 +64,14 @@ public class Server implements Runnable {
 
         openServerSocket();
         SSHandler.onOpenSocketSuccess();
-        ServerThread serverThread;
+        ClientConnection clientConnection;
 
         while (!isStopped) {
             Socket clientSocket = null;
             try {
                 clientSocket = this.serverSocket.accept();
+            } catch (SocketTimeoutException e){
+                // Restart accept
             } catch (IOException e) {
                 if (isStopped) {
                     System.out.println("ServerAdapter has stopped");
@@ -75,17 +82,21 @@ public class Server implements Runnable {
                 break;
             }
 
-            // Puts the ID and Address into a map
-            int curClientID = clientId.getAndIncrement();
-            clientIdConnection.put(curClientID, clientSocket.getLocalAddress());
+            if(clientSocket!=null) {
+                // Puts the ID and Address into a map
+                long curClientID = clientId.getAndIncrement();
+                
 
-            // Creates the thread and puts it into a list of server threads
-            // After, it saves reference a Future of the thread so it can be distinct within the threadPool since we do not own it
-            SSHandler.onClientConnected(clientSocket.getLocalAddress().toString(), curClientID);
-            serverThread = new ServerThread(clientSocket, curClientID);
-            listOfServerThread.add(serverThread);
-            Future futureThread = this.threadPool.submit(serverThread);
-            listOfFutureServerThread.add(futureThread);
+                // Creates the thread and puts it into a list of server threads
+                // After, it saves reference a Future of the thread so it can be distinct within the threadPool since we do not own it
+                SSHandler.onClientConnected(clientSocket.getLocalAddress().toString(), curClientID);
+                clientConnection = new ClientConnection(clientSocket, curClientID);
+                clientConnection.setServerCCHandler(this);
+                clientIdConnection.put(curClientID, clientConnection);
+                Thread clientConnectionThread = new Thread(clientConnection);
+                this.threadPool.execute(clientConnectionThread);
+                
+            }
         }
 
     }
@@ -94,16 +105,16 @@ public class Server implements Runnable {
      * Shutdown the Server by closing the thread pool and closing
      * the sockets of Client and Servers
      */
-    public boolean terminate() {
+    public synchronized boolean terminate() {
 
         //Shutdown each clientSocket gracefully by alerting each client
-        for (ServerThread curServerThread : listOfServerThread) {
-            curServerThread.terminateConnection(TO_CLIENT);
-        }
-
-        //Interrupts the Future thread in the list
-        for (Future curFutureThread : listOfFutureServerThread) {
-            curFutureThread.cancel(true);
+        for (ClientConnection curClientConnection : clientIdConnection.values()) {
+            try{
+                curClientConnection.terminateConnection();
+                this.wait(WAIT_DELAY_MS);
+            } catch (InterruptedException e) {
+                SSHandler.onShutdownFailure("ClientConnection shutdown was interrupted ");
+            }
         }
 
 
@@ -143,9 +154,12 @@ public class Server implements Runnable {
 
             InetAddress address = InetAddress.getByName(this.serverAddress);
             this.serverSocket = new ServerSocket(this.serverPort, 50, address);
+            this.serverSocket.setSoTimeout(TIMEOUT_DELAY_MS);
 
         } catch (UnknownHostException e) {
             SSHandler.onOpenSocketFailure("Could not get host: " + serverAddress);
+        } catch (SocketException e){
+            SSHandler.onOpenSocketFailure("Could not set the timeout delay for serverSocket");
         } catch (IOException e) {
             SSHandler.onOpenSocketFailure("Could not open server port " + serverPort);
         }
@@ -157,9 +171,37 @@ public class Server implements Runnable {
      *
      * @param clientID Integer value unique to the client
      */
-    private void terminateThread(int clientID) {
+    private void terminateThread(long clientID) {
         //TODO Take response from handler and close thread with clientID
+        
+        if(clientIdConnection.containsKey(clientID)){
+            try{
+                clientIdConnection.get(clientID).terminateConnection();
+                this.wait(WAIT_DELAY_MS);
+                clientIdConnection.remove(clientID);
+            } catch (InterruptedException e) {
+                SSHandler.onShutdownFailure("ClientConnection shutdown was interrupted ");
+            }
+        }
+        
+        
     }
+
+    @Override
+    public synchronized void onRequestReceived( Request request ) {
+        
+        //TODO Fill this in
+        if (request.getTopic().equals(Request.Topic.DISCONNECT)) {
+            terminateThread(request.getId());
+        }
+    
+    }
+
+    @Override
+    public void onRequestSubmissionFailure( String reason ) {
+        System.out.println("Thread failed to submit request");
+    }
+
 
     /**
      * Handler to communicate with ServerAdapter
@@ -170,9 +212,9 @@ public class Server implements Runnable {
 
         void onOpenSocketFailure(final String reason);
 
-        void onClientConnected(final String ipAddress, final int clientID);
+        void onClientConnected(final String ipAddress, final long clientID);
 
-        void onClientDisconnected(final String ipAddress, final int clientID);
+        void onClientDisconnected(final String ipAddress, final long clientID);
 
         void onShutdownSuccess();
 
