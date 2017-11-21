@@ -29,6 +29,7 @@ public class Client implements Runnable {
     private long clientID;
     private volatile boolean isStopped = false;
     private Thread clientThread;
+    private Request responseFromServer;
     
     /**
      * Creates new Client with address and port
@@ -78,8 +79,6 @@ public class Client implements Runnable {
             
             Runnable clientReadTask = () -> {
                 
-                Request responseFromServer;
-                
                 try {
                     
                     Thread.sleep(200);
@@ -88,17 +87,17 @@ public class Client implements Runnable {
                             if (( responseFromServer = (Request) this.in.readObject() ) != null) {
                                 
                                 //TODO PROCESS REQUEST more indepth
-                                if (responseFromServer.getTopic().equals(Request.Topic.DISCONNECT)) {
+                                if (Request.Topic.valueOf(responseFromServer.getTopic()).equals(Request.Topic.DISCONNECT)) {
                                     System.out.println("Request to terminate beginning...");
                                     System.out.flush();
                                     terminate();
-                                } else if (responseFromServer.getTopic().equals(Request.Topic.AVERAGE)) {
+                                } else if (Request.Topic.valueOf(responseFromServer.getTopic()).equals(Request.Topic.AVERAGE)) {
                                     System.out.println("Average: " + responseFromServer.getAmount());
                                     System.out.flush();
-                                } else if (responseFromServer.getTopic().equals(Request.Topic.COUNT)) {
+                                } else if (Request.Topic.valueOf(responseFromServer.getTopic()).equals(Request.Topic.COUNT)) {
                                     System.out.println("Count: " + responseFromServer.getAmount());
                                     System.out.flush();
-                                } else if (responseFromServer.getTopic().equals(Request.Topic.HISTORY)) {
+                                } else if (Request.Topic.valueOf(responseFromServer.getTopic()).equals(Request.Topic.HISTORY)) {
                                     System.out.println("Number of submission: " + responseFromServer.getAmount());
                                     System.out.flush();
                                 }
@@ -107,6 +106,7 @@ public class Client implements Runnable {
                             // Restart read
                         } catch (EOFException e) {
                             //Reached End Of File, do stuff
+                            //TODO
                         }
                         
                     }
@@ -157,6 +157,8 @@ public class Client implements Runnable {
             case COMMAND_DISCONNECT:
                 try {
                     requestToServer = RequestFactory.clientDisconnect(clientID);
+                    System.out.println("Request: Disconnect");
+                    System.out.flush();
                     this.out.writeObject(requestToServer);
                     this.out.flush();
                 } catch (IOException e) {
@@ -166,6 +168,8 @@ public class Client implements Runnable {
             case COMMAND_COUNT:
                 try {
                     requestToServer = RequestFactory.clientCountRequest(clientID, commandRange);
+                    System.out.println("Request: COUNT");
+                    System.out.flush();
                     this.out.writeObject(requestToServer);
                     this.out.flush();
                 } catch (IOException e) {
@@ -175,6 +179,8 @@ public class Client implements Runnable {
             case COMMAND_AVERAGE:
                 try {
                     requestToServer = RequestFactory.clientAverageRequest(clientID, commandRange);
+                    System.out.println("Request: AVERAGE");
+                    System.out.flush();
                     this.out.writeObject(requestToServer);
                     this.out.flush();
                 } catch (IOException e) {
@@ -184,6 +190,8 @@ public class Client implements Runnable {
             case COMMAND_HISTORY:
                 try {
                     requestToServer = RequestFactory.clientHistoryRequest(clientID, commandRange);
+                    System.out.println("Request: HISTORY");
+                    System.out.flush();
                     this.out.writeObject(requestToServer);
                     this.out.flush();
                 } catch (IOException e) {
@@ -222,9 +230,6 @@ public class Client implements Runnable {
         try {
             this.in.close();
             this.out.close();
-            
-            System.out.println("HERE BABY");
-            System.out.flush();
             
             this.clientSocket.close();
             if (clientSocket.isClosed()) {

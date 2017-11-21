@@ -179,6 +179,7 @@ public class ClientLauncher implements ClientUI {
                         clientAdapter.sendCommand(".count", ".self");
                         break;
                     } else if (input.equalsIgnoreCase("7")) {
+                        clientAdapter.sendCommand(".disconnect", ".self");
                         clientAdapter.disconnect();
                         hasNewInput = false;
                         break;

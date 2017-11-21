@@ -178,6 +178,7 @@ public class Server implements Runnable, ClientConnection.ClientConnectionHandle
                 clientIdConnection.get(clientID).terminateConnection();
                 this.wait(WAIT_DELAY_MS);
                 clientIdConnection.remove(clientID);
+                System.out.println("Dunzo");
             } catch (InterruptedException e) {
                 SSHandler.onShutdownFailure("ClientConnection shutdown was interrupted ");
             }
@@ -190,7 +191,7 @@ public class Server implements Runnable, ClientConnection.ClientConnectionHandle
     public synchronized void onRequestReceived( Request request ) {
         
         //TODO Fill this in
-        if (request.getTopic().equals(Request.Topic.DISCONNECT)) {
+        if (Request.Topic.valueOf(request.getTopic()).equals(Request.Topic.DISCONNECT)) {
             terminateThread(request.getId());
         }
         
