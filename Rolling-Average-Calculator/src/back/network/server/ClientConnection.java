@@ -3,16 +3,15 @@ package back.network.server;
 import utility.request.Request;
 import utility.request.RequestFactory;
 
-import java.io.*;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
-
-import static back.network.client.ClientAdapter.WAIT_DELAY_MS;
-import static utility.request.Request.Response.OK;
-import static utility.request.Request.Topic.DISCONNECT;
 
 public class ClientConnection implements Runnable {
     
@@ -28,15 +27,17 @@ public class ClientConnection implements Runnable {
     private Thread clientConnectionThread;
     
     private List<Integer> clientSubmission = new ArrayList<>();
-
+    
+    
     //TODO Create a handler to communicate between Server and ClientConnection
-
+    
     /**
      * Creates new ClientConnection with a clientSocket
      *
      * @param clientSocket
      */
-    public ClientConnection( Socket clientSocket, long clientID) {
+    public ClientConnection( Socket clientSocket, long clientID ) {
+        
         this.clientSocket = clientSocket;
         this.clientID = clientID;
     }
@@ -46,7 +47,8 @@ public class ClientConnection implements Runnable {
      *
      * @param handler The communication interface being used.
      */
-    public void setServerCCHandler(final ClientConnectionHandler handler) {
+    public void setServerCCHandler( final ClientConnectionHandler handler ) {
+        
         serverCCHandler = handler;
     }
     
@@ -61,7 +63,7 @@ public class ClientConnection implements Runnable {
             //Initialing the inputs and outputs
             
             this.out = new ObjectOutputStream(this.clientSocket.getOutputStream());
-
+            
             //Sending ID to client
             this.out.writeLong(clientID);
             this.out.flush();
@@ -71,67 +73,113 @@ public class ClientConnection implements Runnable {
             
             
             //TODO Process information
-
+            
             //Reading information
             Runnable clientConnectionTask = () -> {
                 try {
                     while (!this.isStopped) {
                         try {
                             if (( this.request = (Request) this.in.readObject() ) != null) {
-        
+                                
                                 //TODO Process Submit, Average(self), and History(self) differently, otherwise, go straight to server
-        
-                                serverCCHandler.onRequestReceived(request);
-        
+                                
+                                if (this.request.getTopic().equals(Request.Topic.SUBMIT)) {
+                                    
+                                    this.clientSubmission.add(this.request.getAmount());
+                                    this.serverCCHandler.onRequestReceived(request);
+                                    
+                                } else if (this.request.getTopic().equals(Request.Topic.AVERAGE)) {
+                                    
+                                    if (this.request.getRange().equals(Request.Range.SELF)) {
+                                        int average = 0;
+                                        for (int curValue : clientSubmission) {
+                                            average += curValue;
+                                        }
+                                        respondToClient(RequestFactory.serverAverageResponse(Request.Response.OK, Request.Range.SELF, average / clientSubmission.size()));
+                                    } else {
+                                        this.serverCCHandler.onRequestReceived(request);
+                                    }
+                                    
+                                } else if (this.request.getTopic().equals(Request.Topic.COUNT)) {
+                                    
+                                    if (this.request.getRange().equals(Request.Range.SELF)) {
+                                        respondToClient(RequestFactory.serverCountResponse(Request.Response.OK, Request.Range.SELF, clientSubmission.size()));
+                                    } else {
+                                        this.serverCCHandler.onRequestReceived(request);
+                                    }
+                                    
+                                } else if (this.request.getTopic().equals(Request.Topic.HISTORY)) {
+                                    
+                                    if (this.request.getRange().equals(Request.Range.SELF)) {
+                                    
+                                    } else {
+                                        this.serverCCHandler.onRequestReceived(request);
+                                    }
+                                    
+                                } else {
+                                    this.serverCCHandler.onRequestReceived(request);
+                                }
+                                
                                 //TODO More requests handling here
-        
+                                
                                 // Theoretically, the ClientAdapter to validate the inputs to be only numbers
                                 // Should there be any non-numbers, it would mean its commands to request informing or write
                                 // So any other messages received by ClientConnection should be submitted as a request to add
                                 // to the sum
-        
+                                
                             }
-                        }  catch ( SocketTimeoutException e) {
+                        } catch (SocketTimeoutException e) {
                             // Restart read
+                        } catch (EOFException e) {
+                            //Reached end of file, do stuff
+                            if (!this.clientSocket.isConnected()) {
+                                //TODO Client terminated abruptly. Stop gracefully
+                                break;
+                            }
+                            e.printStackTrace();
                         }
                     }
-                } catch (SocketException e){
+                } catch (SocketException e) {
                     //TODO Handler
                     //ServerSocket was closed
-                    e.printStackTrace();
-                } catch (ClassNotFoundException e){
+                } catch (ClassNotFoundException e) {
                     //SHOULD NEVER HAPPEN
                     e.printStackTrace();
-                } catch (IOException e){
+                } catch (IOException e) {
                     //TODO Handler
                     e.printStackTrace();
                 }
             };
+            
             clientConnectionThread = new Thread(clientConnectionTask);
             clientConnectionThread.start();
             
         } catch (InterruptedException e) {
             // We've been interrupted: no more messages.
             return;
-
+            
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
-
+    
+    
     /**
      * Close the connections between the source and the destination
      *
      * @return Validation if termination was success
      */
     public synchronized boolean terminateConnection() {
+        
         try {
             Request disconnectClient = RequestFactory.serverDisconnect();
             this.out.writeObject(disconnectClient);
             this.out.flush();
-    
-            try{
+            
+            System.out.println("After writing and flushing");
+            System.out.flush();
+            
+            try {
                 this.wait(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -148,15 +196,23 @@ public class ClientConnection implements Runnable {
             //TODO Handler "Error on closing client connection");
             e.printStackTrace();
         }
-
+        
         return this.isStopped;
     }
     
-    public void respondToClient(Request response){
-    
+    public void respondToClient( Request response ) {
+        
+        try {
+            this.out.writeObject(response);
+            this.out.flush();
+        } catch (IOException e) {
+            //TODO Handler ("Could not write requestToServer");
+            e.printStackTrace();
+        }
     }
     
-    public interface ClientConnectionHandler{
+    public interface ClientConnectionHandler {
+        
         void onRequestReceived( Request request );
         void onRequestSubmissionFailure( String reason );
     }

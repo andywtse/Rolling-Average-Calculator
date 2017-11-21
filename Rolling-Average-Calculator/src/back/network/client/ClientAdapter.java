@@ -10,7 +10,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * for a user to enter numbers.
  */
 public class ClientAdapter implements Client.ClientHandler {
-
+    
     public static final int WAIT_DELAY_MS = 1000;
     
     /**
@@ -22,17 +22,18 @@ public class ClientAdapter implements Client.ClientHandler {
     private Thread threadClient;
     private boolean isShuttingDown = false;
     private ReentrantLock stateLock;
-
+    
     /**
      * Establish a link to the communication interface that the user
      * will use.
      *
      * @param handler The communication interface being used.
      */
-    public void setUIHandler(final ClientUI handler) {
+    public void setUIHandler( final ClientUI handler ) {
+        
         UIHandler = handler;
     }
-
+    
     /**
      * Attempt to create a network connection to a {@link ServerAdapter}. Whether this
      * succeeds or fails, this method should communicate back to the
@@ -41,9 +42,10 @@ public class ClientAdapter implements Client.ClientHandler {
      * @param ipAddress The IPv4 or IPv6 network address to connect to.
      * @param port      The port of the server to connect to.
      */
-    public void connect(final String ipAddress, final String port) {
+    public void connect( final String ipAddress, final String port ) {
+        
         System.out.println("Attempting to connect to " + ipAddress + ":" + port);
-
+        
         new Thread(() -> {
             stateLock = new ReentrantLock();
             this.client = new Client(ipAddress, Integer.parseInt(port));
@@ -55,19 +57,19 @@ public class ClientAdapter implements Client.ClientHandler {
             } else {
                 this.UIHandler.onConnectionFailure("Could not start Client thread");
             }
-
+            
         }).start();
-
+        
     }
-
+    
     /**
      * Close any existing connections and clean up variables so any connected
      * {@link ServerAdapter} will not throw exceptions when this program ends.
      */
     public synchronized void disconnect() {
-
+        
         //TODO Send disconnect to server
-
+        
         if (isShuttingDown) {
             return;
         }
@@ -79,7 +81,7 @@ public class ClientAdapter implements Client.ClientHandler {
                 try {
                     this.wait(WAIT_DELAY_MS);
                     //TODO Handler needs to inform ClientLauncher that disconnect was success
-                } catch (InterruptedException e){
+                } catch (InterruptedException e) {
                     UIHandler.onConnectionBroken("Closure of client thread was interrupted");
                 }
                 if (threadClient.isAlive()) {
@@ -92,29 +94,31 @@ public class ClientAdapter implements Client.ClientHandler {
             UIHandler.onConnectionFailure("Socket could not close");
         }
     }
-
+    
     /**
      * Sends a message to the server from the client
      *
      * @param command The command message sent by the client
      */
-    public void sendCommand(String command, String range) {
+    public void sendCommand( String command, String range ) {
         //TODO Check if commands are valid or if the message is purely numbers
         this.client.commandToServer(command, range);
-
+        
     }
-
+    
     /**
      * Sends a value to the server from the client
      *
      * @param value The value sent by the client
      */
-    public void sendValue(int value){
+    public void sendValue( int value ) {
+        
         this.client.valueToServer(value);
     }
-
+    
     @Override
     public void onOpenSocketSuccess() {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
@@ -122,22 +126,24 @@ public class ClientAdapter implements Client.ClientHandler {
         System.out.println(success);
         stateLock.unlock();
     }
-
+    
     @Override
-    public void onOpenSocketFailure(String reason) {
+    public void onOpenSocketFailure( String reason ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
         final String failure = "CCHandler: Socket failed to opened due to: " + reason;
         System.out.println(failure);
-
+        
         //TODO Terminate client thread immediately
-
+        
         stateLock.unlock();
     }
-
+    
     @Override
-    public void onServerConnected(String ipAddress) {
+    public void onServerConnected( String ipAddress ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
@@ -145,9 +151,10 @@ public class ClientAdapter implements Client.ClientHandler {
         System.out.println(connection);
         stateLock.unlock();
     }
-
+    
     @Override
-    public void onClientDisconnected(String ipAddress, long clientID) {
+    public void onClientDisconnected( String ipAddress, long clientID ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
@@ -155,9 +162,10 @@ public class ClientAdapter implements Client.ClientHandler {
         System.out.println(connection);
         stateLock.unlock();
     }
-
+    
     @Override
     public void onShutdownSuccess() {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
@@ -165,9 +173,10 @@ public class ClientAdapter implements Client.ClientHandler {
         System.out.println(success);
         stateLock.unlock();
     }
-
+    
     @Override
-    public void onShutdownFailure(String reason) {
+    public void onShutdownFailure( String reason ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
@@ -175,9 +184,10 @@ public class ClientAdapter implements Client.ClientHandler {
         System.out.println(failure);
         stateLock.unlock();
     }
-
+    
     @Override
-    public void onConnectionBroken(String reason) {
+    public void onConnectionBroken( String reason ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
@@ -185,9 +195,10 @@ public class ClientAdapter implements Client.ClientHandler {
         UIHandler.onConnectionBroken(failure);
         stateLock.unlock();
     }
-
+    
     @Override
-    public void onIOSocketFailure(final String reason) {
+    public void onIOSocketFailure( final String reason ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }

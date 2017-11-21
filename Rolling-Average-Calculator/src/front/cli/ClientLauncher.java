@@ -27,6 +27,7 @@ public class ClientLauncher implements ClientUI {
     private String additionalText;
     private boolean hasNewInput = true;
     private boolean shouldQuit = false;
+    
     private ClientLauncher() {
         
         clientAdapter.setUIHandler(this);
@@ -153,7 +154,8 @@ public class ClientLauncher implements ClientUI {
                 if (input.length() == 1) {
                     if (input.equalsIgnoreCase("1")) {
                         System.out.println("\nEnter a number: ");
-                        final int numInput= scanner.nextInt();;
+                        final int numInput = scanner.nextInt();
+                        ;
 //                        while (!scanner.hasNextInt()) {
 //                            System.out.println("That's not a number!");
 //                            scanner.next(); // this is important!
@@ -162,19 +164,19 @@ public class ClientLauncher implements ClientUI {
                         clientAdapter.sendValue(numInput);
                         break;
                     } else if (input.equalsIgnoreCase("2")) {
-                        clientAdapter.sendCommand(".average",".all");
+                        clientAdapter.sendCommand(".average", ".all");
                         break;
                     } else if (input.equalsIgnoreCase("3")) {
                         clientAdapter.sendCommand(".average", ".self");
                         break;
                     } else if (input.equalsIgnoreCase("4")) {
-                        clientAdapter.sendCommand(".history",".self");
+                        clientAdapter.sendCommand(".history", ".self");
                         break;
                     } else if (input.equalsIgnoreCase("5")) {
-                        clientAdapter.sendCommand(".history",".all");
+                        clientAdapter.sendCommand(".history", ".all");
                         break;
                     } else if (input.equalsIgnoreCase("6")) {
-                        clientAdapter.sendCommand(".count",".self");
+                        clientAdapter.sendCommand(".count", ".self");
                         break;
                     } else if (input.equalsIgnoreCase("7")) {
                         clientAdapter.disconnect();

@@ -31,6 +31,7 @@ public class ServerLauncher implements ServerUI {
     private ReentrantLock stateLock = new ReentrantLock();
     private boolean hasNewInput = true;
     private boolean shouldQuit = false;
+    
     private ServerLauncher() {
         
         serverAdapter.setUIHandler(this);
