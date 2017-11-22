@@ -158,12 +158,6 @@ public class ClientLauncher implements ClientUI {
                     if (input.equalsIgnoreCase("1")) {
                         System.out.println("\nEnter a number: ");
                         final int numInput = scanner.nextInt();
-                        ;
-//                        while (!scanner.hasNextInt()) {
-//                            System.out.println("That's not a number!");
-//                            scanner.next(); // this is important!
-//                        }
-//                        numInput = scanner.nextInt();
                         clientAdapter.sendValue(numInput);
                         break;
                     } else if (input.equalsIgnoreCase("2")) {

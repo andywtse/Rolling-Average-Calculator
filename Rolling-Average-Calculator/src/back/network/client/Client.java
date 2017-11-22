@@ -43,10 +43,7 @@ public class Client implements Runnable {
      *
      * @param handler The communication interface being used.
      */
-    public void setCCHandler( final ClientHandler handler ) {
-        
-        CCHandler = handler;
-    }
+    public void setCCHandler( final ClientHandler handler ) { CCHandler = handler; }
     
     /**
      * The {@link Client} will call openClientSocket() to establish a connection with the {@link back.network.server.Server}.
@@ -88,13 +85,13 @@ public class Client implements Runnable {
      */
     private void responseFromServer(){
         
-        String jsonInput;
+        String jsonOutput;
         
         while(!isStopped){
             try {
-                jsonInput = this.in.readUTF();
-                if (jsonInput != null) {
-                    Request response = new Request.Builder().fromJSONString(jsonInput).build();
+                jsonOutput = (String)this.in.readObject();
+                if (jsonOutput != null) {
+                    Request response = new Request.Builder().fromJSONString(jsonOutput).build();
     
                     switch (response.getTopic()) {
                         case AVERAGE:
@@ -102,20 +99,25 @@ public class Client implements Runnable {
                             System.out.flush();
                             break;
                         case COUNT:
-                            System.out.println("Average: " + response.getAmount());
+                            System.out.println("Count: " + response.getAmount());
                             System.out.flush();
                             break;
                         case HISTORY:
-                            System.out.println("Average: " + response.getAmount());
+                            System.out.println("History: " + response.getEntries());
                             System.out.flush();
                             break;
                         case USERS:
-                            System.out.println("Average: " + response.getAmount());
+                            System.out.println("Users: " + response.getAmount());
                             System.out.flush();
                             break;
                     }
+                    
+                }else{
+                    //TODO Handle bad response
                 }
             } catch (EOFException e){
+                //TODO Figure out how to handle this
+            } catch (ClassNotFoundException e){
                 //TODO Figure out how to handle this
             } catch (IOException e){
                 CCHandler.onIOSocketFailure("Could not receive response from server");
@@ -136,7 +138,7 @@ public class Client implements Runnable {
         }
         
         try {
-            this.out.writeUTF(request.toJSONString());
+            this.out.writeObject(request.toJSONString());
         } catch (IOException e){
             CCHandler.onIOSocketFailure("Could not send request to server");
         }

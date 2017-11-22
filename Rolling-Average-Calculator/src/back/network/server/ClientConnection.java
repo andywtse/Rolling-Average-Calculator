@@ -27,6 +27,7 @@ public class ClientConnection implements Runnable {
     private Thread clientConnectionThread;
     
     private List<Integer> clientSubmission = new ArrayList<>();
+    private int clientSum = 0;
     
     
     //TODO Create a handler to communicate between Server and ClientConnection
@@ -71,103 +72,7 @@ public class ClientConnection implements Runnable {
             this.in = new ObjectInputStream(this.clientSocket.getInputStream());
             this.clientSocket.setSoTimeout(TIMEOUT_DELAY_MS);
             
-            
-            //TODO Process information
-            
-            //Reading information
-            Runnable clientConnectionTask = () -> {
-                try {
-                    while (!this.isStopped) {
-                        try {
-                            if (( this.request = (Request) this.in.readObject() ) != null) {
-                                
-                                //TODO Process Submit, Average(self), and History(self) differently, otherwise, go straight to server
-                                System.out.println("Request has been read: "+this.request.toJSONString());
-                                System.out.flush();
-                                
-                                if (Request.Topic.valueOf(this.request.getTopic()).equals(Request.Topic.SUBMIT)) {
-                                    System.out.println("Response: SUBMIT");
-                                    System.out.flush();
-                                    this.clientSubmission.add(this.request.getAmount());
-                                    this.serverCCHandler.onRequestReceived(request);
-                                    
-                                } else if (Request.Topic.valueOf(this.request.getTopic()).equals(Request.Topic.AVERAGE)) {
-    
-                                    System.out.println("Response: AVERAGE");
-                                    System.out.flush();
-                                    if (Request.Range.valueOf(this.request.getRange()).equals(Request.Range.SELF)) {
-                                        if(clientSubmission.size()==0){
-                                            System.out.println("Average: " + 0);
-                                            respondToClient(RequestFactory.serverAverageResponse(Request.Response.OK, Request.Range.SELF, 0));
-                                        }else {
-                                            int average = 0;
-                                            for (int curValue : clientSubmission) {
-                                                average += curValue;
-                                            }
-                                            System.out.println("Average: " + average / clientSubmission.size());
-                                            respondToClient(RequestFactory.serverAverageResponse(Request.Response.OK, Request.Range.SELF, average / clientSubmission.size()));
-                                        }
-                                    } else {
-                                        this.serverCCHandler.onRequestReceived(request);
-                                    }
-                                    
-                                } else if (Request.Topic.valueOf(this.request.getTopic()).equals(Request.Topic.COUNT)) {
-    
-                                    System.out.println("Response: COUNT");
-                                    System.out.flush();
-                                    if (Request.Range.valueOf(this.request.getRange()).equals(Request.Range.SELF)) {
-                                        respondToClient(RequestFactory.serverCountResponse(Request.Response.OK, Request.Range.SELF, clientSubmission.size()));
-                                    } else {
-                                        this.serverCCHandler.onRequestReceived(request);
-                                    }
-                                    
-                                } else if (Request.Topic.valueOf(this.request.getTopic()).equals(Request.Topic.HISTORY)) {
-    
-                                    System.out.println("Response: HISTORY");
-                                    System.out.flush();
-                                    if (Request.Topic.valueOf(this.request.getRange()).equals(Request.Range.SELF)) {
-                                    
-                                    } else {
-                                        this.serverCCHandler.onRequestReceived(request);
-                                    }
-                                    
-                                } else {
-                                    System.out.println("Reached the else");
-                                    this.serverCCHandler.onRequestReceived(request);
-                                }
-                                
-                                //TODO More requests handling here
-                                
-                                // Theoretically, the ClientAdapter to validate the inputs to be only numbers
-                                // Should there be any non-numbers, it would mean its commands to request informing or write
-                                // So any other messages received by ClientConnection should be submitted as a request to add
-                                // to the sum
-                                
-                            }
-                        } catch (SocketTimeoutException e) {
-                            // Restart read
-                        } catch (EOFException e) {
-                            //Reached end of file, do stuff
-                            if (!this.clientSocket.isConnected()) {
-                                //TODO Client terminated abruptly. Stop gracefully
-                                break;
-                            }
-//                            e.printStackTrace();
-                        }
-                    }
-                } catch (SocketException e) {
-                    //TODO Handler
-                    //ServerSocket was closed
-                } catch (ClassNotFoundException e) {
-                    //SHOULD NEVER HAPPEN
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    //TODO Handler
-                    e.printStackTrace();
-                }
-            };
-            
-            clientConnectionThread = new Thread(clientConnectionTask);
+            clientConnectionThread = new Thread(this::requestFromServer);
             clientConnectionThread.start();
             
         } catch (InterruptedException e) {
@@ -179,9 +84,115 @@ public class ClientConnection implements Runnable {
         }
     }
     
+    private void requestFromServer(){
+        String jsonInput;
+        
+        while(!isStopped){
+            try {
+                jsonInput = (String)this.in.readObject();
+                if (jsonInput != null) {
+                    System.out.println(jsonInput);
+                    System.out.flush();
+                    Request request = new Request.Builder().fromJSONString(jsonInput).build();
+                
+                    switch (request.getTopic()) {
+                        case SUBMIT:
+                            processSubmit(request);
+                            break;
+                        case AVERAGE:
+                            processAverage(request);
+                            break;
+                        case COUNT:
+                            processCount(request);
+                            break;
+                        case HISTORY:
+                            processHistory(request);
+                            break;
+                        case USERS:
+                            serverCCHandler.onRequestReceived(request);
+                            break;
+                        case DISCONNECT:
+                            serverCCHandler.onRequestReceived(request);
+                            break;
+                    }
+                }
+            } catch (EOFException e){
+                //TODO Figure out how to handle this
+            } catch (ClassNotFoundException e){
+                //TODO Figure out how to handle this
+            } catch (IOException e){
+                //TODO Handle this exception
+            }
+        }
+    }
+    
+    private void processSubmit(Request request){
+        clientSubmission.add(request.getAmount());
+        clientSum+=request.getAmount();
+        
+        serverCCHandler.onRequestReceived(request);
+    }
+    
+    private void processAverage(Request request){
+    
+        switch (request.getRange()) {
+            case ALL:
+                serverCCHandler.onRequestReceived(request);
+                break;
+            case SELF:
+                int average = 0;
+                if(clientSubmission.size()>0){
+                    average = clientSum/clientSubmission.size();
+                }
+                Request response = RequestFactory.serverAverageResponse(Request.Response.OK, Request.Range.SELF,average);
+                respondToClient(response);
+                break;
+        }
+    }
+    
+    private void processCount( Request request ) {
+        switch (request.getRange()) {
+            case ALL:
+                serverCCHandler.onRequestReceived(request);
+                break;
+            case SELF:
+                Request response = RequestFactory.serverCountResponse(Request.Response.OK, Request.Range.SELF,clientSubmission.size());
+                respondToClient(response);
+                break;
+        }
+    }
+    
+    private void processHistory( Request request ) {
+        switch (request.getRange()) {
+            case ALL:
+                serverCCHandler.onRequestReceived(request);
+                break;
+            case SELF:
+                Request response = RequestFactory.serverHistoryResponse(Request.Response.OK, Request.Range.SELF,clientSubmission);
+                respondToClient(response);
+                break;
+        }
+    }
     
     /**
-     * Close the connections between the source and the destination
+     * Writes the response {@link Request} to outputstream in UTF to send to the client
+     *
+     * @param response A response that is made by the server to appease a request
+     */
+    public void respondToClient( Request response ) {
+        
+        try {
+            this.out.writeObject(response.toJSONString());
+            this.out.flush();
+        } catch (IOException e) {
+            //TODO Handler ("Could not write requestToServer");
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Attempts to send a disconnect from server response, only when the socket connection is open.
+     * Otherwise, interrupt the thread and close the inputs and outputs and the socket.
      *
      * @return Validation if termination was success
      */
@@ -190,22 +201,31 @@ public class ClientConnection implements Runnable {
         try {
             try{
                 Request disconnectClient = RequestFactory.serverDisconnect();
-                this.out.writeObject(disconnectClient);
+                this.out.writeObject(disconnectClient.toJSONString());
                 this.out.flush();
-                this.wait(1000);
+                this.wait(500);
             } catch (SocketException e){
                 //TODO Handler
                 //Already closed
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+    
+            this.clientConnectionThread.interrupt();
+            try{
+                this.wait(2000);
+            } catch (InterruptedException e){
+                //TODO Make handler for this
+                //Wait for interrupt
+            }
             
             this.in.close();
             this.out.close();
-            this.clientSocket.close();
-            this.clientConnectionThread.interrupt();
-            
+    
             this.isStopped = true;
+            
+            this.clientSocket.close();
+            
             return this.isStopped;
         } catch (IOException e) {
             //TODO Handler "Error on closing client connection");
@@ -215,20 +235,15 @@ public class ClientConnection implements Runnable {
         return this.isStopped;
     }
     
-    public void respondToClient( Request response ) {
-        
-        try {
-            this.out.writeObject(response);
-            this.out.flush();
-        } catch (IOException e) {
-            //TODO Handler ("Could not write requestToServer");
-            e.printStackTrace();
-        }
-    }
-    
+    /**
+     * The communication interface for the ClientConnection to the {@link Server}.
+     */
     public interface ClientConnectionHandler {
-        
+    
+        /**
+         * Callback to the {@link Server} to inform that the client has made a request.
+         * The server must deal with the request and send a response back
+         */
         void onRequestReceived( Request request );
-        void onRequestSubmissionFailure( String reason );
     }
 }

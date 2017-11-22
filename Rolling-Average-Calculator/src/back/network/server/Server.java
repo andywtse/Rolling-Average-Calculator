@@ -19,18 +19,20 @@ public class Server implements Runnable, ClientConnection.ClientConnectionHandle
     private static final int WAIT_DELAY_MS = 1000;
     
     private ServerHandler SSHandler;
-    private int serverPort;
-    private String serverAddress;
+    
     private ServerSocket serverSocket = null;
     private ExecutorService threadPool = Executors.newFixedThreadPool(4);
+    
     private volatile boolean isStopped = false;
+    private String serverAddress;
+    private int serverPort;
     
     private Map<Long, ClientConnection> clientIdConnection = new HashMap<Long, ClientConnection>();
     private AtomicLong clientId = new AtomicLong(0);
     private List<Integer> listOfClientSubmission = new ArrayList<>();
     
-    private double sum = 0;
     private int count = 0;
+    private double sum = 0;
     private double average;
     
     /**
@@ -191,34 +193,22 @@ public class Server implements Runnable, ClientConnection.ClientConnectionHandle
     public synchronized void onRequestReceived( Request request ) {
         
         //TODO Fill this in
-        if (Request.Topic.valueOf(request.getTopic()).equals(Request.Topic.DISCONNECT)) {
-            terminateThread(request.getId());
-        }
-        
-        if (request.getTopic().equals(Request.Topic.SUBMIT)) {
-            //TODO
-        }
-        
-        if (request.getTopic().equals(Request.Topic.AVERAGE)) {
-            //TODO
-        }
-        
-        if (request.getTopic().equals(Request.Topic.COUNT)) {
-            //TODO
-        }
-        
-        if (request.getTopic().equals(Request.Topic.HISTORY)) {
-            //TODO
+        switch (request.getTopic()) {
+            case SUBMIT:
+                break;
+            case AVERAGE:
+                break;
+            case COUNT:
+                break;
+            case HISTORY:
+                break;
+            case USERS:
+                break;
+            case DISCONNECT:
+                break;
         }
         
     }
-    
-    @Override
-    public void onRequestSubmissionFailure( String reason ) {
-        
-        System.out.println("Thread failed to submit request");
-    }
-    
     
     /**
      * Handler to communicate with ServerAdapter
