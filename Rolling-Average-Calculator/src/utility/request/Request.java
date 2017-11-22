@@ -1,5 +1,6 @@
 package utility.request;
 
+import com.sun.org.apache.regexp.internal.RE;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -18,15 +19,15 @@ public class Request implements Serializable{
     private static final String ENTRIES_KEY = "ENTRIES";
     private static final String RESPONSE_KEY = "RESPONSE";
     private List<Integer> entries;
-    private String topic;
-    private String range;
-    private String response;
+    private Topic topic;
+    private Range range;
+    private Response response;
     private long id;
     private int amount;
     private boolean hasAmount;
     private boolean hasId;
     
-    private Request( final List<Integer> entries, final String topic, final String range, final String response, final boolean hasId, final long id, final boolean hasAmount, final int amount ) {
+    private Request( final List<Integer> entries, final Topic topic, final Range range, final Response response, final boolean hasId, final long id, final boolean hasAmount, final int amount ) {
         
         this.entries = entries;
         this.topic = topic;
@@ -43,17 +44,17 @@ public class Request implements Serializable{
         return entries;
     }
     
-    public String getTopic() {
+    public Topic getTopic() {
         
         return topic;
     }
     
-    public String getRange() {
+    public Range getRange() {
         
         return range;
     }
     
-    public String getResponse() {
+    public Response getResponse() {
         
         return response;
     }
@@ -109,7 +110,7 @@ public class Request implements Serializable{
         OK, ERROR,
     }
     
-    static class Builder {
+    public static class Builder {
         
         private List<Integer> entries = null;
         private Topic topic = null;
@@ -120,45 +121,45 @@ public class Request implements Serializable{
         private boolean hasAmount = false;
         private boolean hasId = false;
         
-        Builder entries( final List<Integer> entries ) {
+        public Builder entries( final List<Integer> entries ) {
             
             this.entries = entries;
             return this;
         }
         
-        Builder topic( final Topic topic ) {
+        public Builder topic( final Topic topic ) {
             
             this.topic = topic;
             return this;
         }
-        
-        Builder range( final Range range ) {
+    
+        public Builder range( final Range range ) {
             
             this.range = range;
             return this;
         }
-        
-        Builder response( final Response response ) {
+    
+        public Builder response( final Response response ) {
             
             this.response = response;
             return this;
         }
-        
-        Builder id( final long id ) {
+    
+        public Builder id( final long id ) {
             
             this.id = id;
             this.hasId = true;
             return this;
         }
-        
-        Builder amount( final int amount ) {
+    
+        public Builder amount( final int amount ) {
             
             this.amount = amount;
             this.hasAmount = true;
             return this;
         }
-        
-        Builder fromJSONString( final String inputString ) {
+    
+        public Builder fromJSONString( final String inputString ) {
             
             final JSONObject input = new JSONObject(inputString);
             try {
@@ -197,15 +198,13 @@ public class Request implements Serializable{
             }
             return this;
         }
-        
-        Request build() {
+    
+        public Request build() {
             
             if (topic == null) {
                 return null;
             }
-            final String rangeString = range == null ? null : range.name();
-            final String responseString = response == null ? null : response.name();
-            return new Request(entries, topic.name(), rangeString, responseString, hasId, id, hasAmount, amount);
+            return new Request(entries, topic, range, response, hasId, id, hasAmount, amount);
         }
     }
 }

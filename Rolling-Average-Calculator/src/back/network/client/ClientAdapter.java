@@ -2,26 +2,25 @@ package back.network.client;
 
 import back.interfacing.ClientUI;
 import back.network.server.ServerAdapter;
+import utility.request.Request;
+import utility.request.RequestFactory;
 
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * This class is used to create a network connection to the {@link ServerAdapter}
+ * This class is used to create a network connection to the {@link back.network.server.Server}
  * for a user to enter numbers.
  */
 public class ClientAdapter implements Client.ClientHandler {
     
     public static final int WAIT_DELAY_MS = 1000;
     
-    /**
-     * The interface that a user will use to communicate with this. It is
-     * preferred to communicate back to this handler on a non-UI thread.
-     */
     private ClientUI UIHandler;
     private Client client;
     private Thread threadClient;
     private boolean isShuttingDown = false;
     private ReentrantLock stateLock;
+    private long clientID;
     
     /**
      * Establish a link to the communication interface that the user
@@ -35,9 +34,9 @@ public class ClientAdapter implements Client.ClientHandler {
     }
     
     /**
-     * Attempt to create a network connection to a {@link ServerAdapter}. Whether this
-     * succeeds or fails, this method should communicate back to the
-     * {@link ClientUI}.
+     * Attempts to create a new {@link Client} that will run on a separate thread to maintain
+     * its own connection with the server. Whether the thread starts of fail, it will communicate
+     * back to the {@link ClientUI}. Must be done in a non-UI thread.
      *
      * @param ipAddress The IPv4 or IPv6 network address to connect to.
      * @param port      The port of the server to connect to.
@@ -68,14 +67,12 @@ public class ClientAdapter implements Client.ClientHandler {
      */
     public synchronized void disconnect() {
         
-        //TODO Send disconnect to server
-        
         if (isShuttingDown) {
             return;
         }
         isShuttingDown = true;
         
-        if (client.terminate()) {
+        if (client.shutdown()) {
             if (threadClient != null) {
                 threadClient.interrupt();
                 try {
@@ -96,24 +93,52 @@ public class ClientAdapter implements Client.ClientHandler {
     }
     
     /**
-     * Sends a message to the server from the client
+     * Creates a specific {@link Request} from the given parameters, Topic and Range. This will then
+     * pass it to the {@link Client} to process the Request.
      *
-     * @param command The command message sent by the client
+     * @param topic The type of request is being made from the user
+     * @param range Determines if request applies to ALL or SELF
      */
-    public void sendCommand( String command, String range ) {
-        //TODO Check if commands are valid or if the message is purely numbers
-        this.client.commandToServer(command, range);
+    public void sendRequest( Request.Topic topic, Request.Range range) {
+        Request request = null;
+    
+        switch (topic) {
+            case AVERAGE:
+                request = RequestFactory.clientAverageRequest(clientID,range);
+                break;
+            case COUNT:
+                request = RequestFactory.clientCountRequest(clientID,range);
+                break;
+            case HISTORY:
+                request = RequestFactory.clientHistoryRequest(clientID,range);
+                break;
+            case USERS:
+                request = RequestFactory.clientUsersRequest(clientID);
+                break;
+            case DISCONNECT:
+                request = RequestFactory.clientDisconnect(clientID);
+                break;
+            default:
+                //Should never get here. However, in the case it does, terminate the client
+                request = RequestFactory.clientDisconnect(clientID);
+                //TODO Make suitable UIHandler callback to handle this .onRequestNotMatching()
+                disconnect();
+                break;
+        }
         
+        this.client.requestToServer(request);
     }
     
     /**
-     * Sends a value to the server from the client
+     * Creates a submit request {@link Request} from the value and passes it to the {@link Client}
+     * to process the information
      *
-     * @param value The value sent by the client
+     * @param value a value the client submits to the server
      */
     public void sendValue( int value ) {
+        Request request = RequestFactory.clientSubmitRequest(clientID,value);
+        this.client.requestToServer(request);
         
-        this.client.valueToServer(value);
     }
     
     @Override
@@ -142,23 +167,17 @@ public class ClientAdapter implements Client.ClientHandler {
     }
     
     @Override
+    public void onConnectionBroken( String reason ) {
+        //TODO
+    }
+    
+    @Override
     public void onServerConnected( String ipAddress ) {
         
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }
         final String connection = "CCHandler: Server IP Address: " + ipAddress + " disconnected";
-        System.out.println(connection);
-        stateLock.unlock();
-    }
-    
-    @Override
-    public void onClientDisconnected( String ipAddress, long clientID ) {
-        
-        while (!stateLock.isHeldByCurrentThread()) {
-            stateLock.lock();
-        }
-        final String connection = "CCHandler: ClientID: " + clientID + " - Client IP Address: " + ipAddress + " disconnected";
         System.out.println(connection);
         stateLock.unlock();
     }
@@ -185,16 +204,6 @@ public class ClientAdapter implements Client.ClientHandler {
         stateLock.unlock();
     }
     
-    @Override
-    public void onConnectionBroken( String reason ) {
-        
-        while (!stateLock.isHeldByCurrentThread()) {
-            stateLock.lock();
-        }
-        final String failure = "CCHandler: Client Connection broken due to: " + reason;
-        UIHandler.onConnectionBroken(failure);
-        stateLock.unlock();
-    }
     
     @Override
     public void onIOSocketFailure( final String reason ) {
@@ -205,5 +214,20 @@ public class ClientAdapter implements Client.ClientHandler {
         final String failure = "CCHandler: IO broken due to: " + reason;
         System.out.println(failure);
         stateLock.unlock();
+    }
+    
+    @Override
+    public void onClientIdObtained(final long id){
+        while (!stateLock.isHeldByCurrentThread()) {
+            stateLock.lock();
+        }
+        final String identity = "Client ID: " + this.clientID;
+        System.out.println(identity);
+        stateLock.unlock();
+    }
+    
+    @Override
+    public void onRequestFailure( String reason ) {
+        //TODO
     }
 }

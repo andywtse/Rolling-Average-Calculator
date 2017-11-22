@@ -1,7 +1,6 @@
 package back.network.client;
 
 import utility.request.Request;
-import utility.request.RequestFactory;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -9,27 +8,22 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketTimeoutException;
 
 public class Client implements Runnable {
     
     private static final int TIMEOUT_DELAY_MS = 2000;
-    private final String COMMAND_DISCONNECT = ".disconnect";
-    private final String COMMAND_SUBMIT = ".submit";
-    private final String COMMAND_COUNT = ".count";
-    private final String COMMAND_HISTORY = ".history";
-    private final String COMMAND_AVERAGE = ".average";
-    private final String COMMAND_USER = ".user";
+    
     private ClientHandler CCHandler;
     private ObjectOutputStream out;
     private ObjectInputStream in;
-    private int clientPort;
+    
     private String clientAddress;
-    private Socket clientSocket;
+    private int clientPort;
     private long clientID;
     private volatile boolean isStopped = false;
+    
+    private Socket clientSocket;
     private Thread clientThread;
-    private Request responseFromServer;
     
     /**
      * Creates new Client with address and port
@@ -55,7 +49,9 @@ public class Client implements Runnable {
     }
     
     /**
-     * Opens the socket and establishes IO with server
+     * The {@link Client} will call openClientSocket() to establish a connection with the {@link back.network.server.Server}.
+     * Then it initializes the inputs and outputs to allow communication between the client and server.
+     * Afterwards, it will create a listening thread to read responses from the server.
      */
     public void run() {
         
@@ -67,64 +63,11 @@ public class Client implements Runnable {
             this.out = new ObjectOutputStream(this.clientSocket.getOutputStream());
             this.out.flush();
             this.in = new ObjectInputStream(this.clientSocket.getInputStream());
-            this.clientSocket.setSoTimeout(TIMEOUT_DELAY_MS);
             
             this.clientID = this.in.readLong();
-            System.out.println("\nClient ID: " + this.clientID);
-            System.out.flush();
+            this.CCHandler.onClientIdObtained(this.clientID);
             
-            
-            //TODO Create a listener to receive messages from the server
-            //TODO Figure out best way to make separate threads for read/write
-            
-            Runnable clientReadTask = () -> {
-                
-                try {
-                    
-                    Thread.sleep(200);
-                    while (!isStopped) {
-                        try {
-                            if (( responseFromServer = (Request) this.in.readObject() ) != null) {
-                                
-                                //TODO PROCESS REQUEST more indepth
-                                if (Request.Topic.valueOf(responseFromServer.getTopic()).equals(Request.Topic.DISCONNECT)) {
-                                    System.out.println("Request to terminate beginning...");
-                                    System.out.flush();
-                                    terminate();
-                                } else if (Request.Topic.valueOf(responseFromServer.getTopic()).equals(Request.Topic.AVERAGE)) {
-                                    System.out.println("Average: " + responseFromServer.getAmount());
-                                    System.out.flush();
-                                } else if (Request.Topic.valueOf(responseFromServer.getTopic()).equals(Request.Topic.COUNT)) {
-                                    System.out.println("Count: " + responseFromServer.getAmount());
-                                    System.out.flush();
-                                } else if (Request.Topic.valueOf(responseFromServer.getTopic()).equals(Request.Topic.HISTORY)) {
-                                    System.out.println("Number of submission: " + responseFromServer.getAmount());
-                                    System.out.flush();
-                                }
-                            }
-                        } catch (SocketTimeoutException e) {
-                            // Restart read
-                        } catch (EOFException e) {
-                            //Reached End Of File, do stuff
-                            //TODO
-                        }
-                        
-                    }
-                    
-                    System.out.println("Disconnected from the server");
-                } catch (ClassNotFoundException e) {
-                    //SHOULD NOT HAPPEN
-                    terminate();
-                    e.printStackTrace();
-                } catch (InterruptedException e) {
-                    // We've been interrupted: no more messages.
-                    return;
-                } catch (IOException e) {
-                    CCHandler.onIOSocketFailure("IO Seized to function");
-                }
-            };
-            
-            this.clientThread = new Thread(clientReadTask);
+            this.clientThread = new Thread(this::responseFromServer);
             this.clientThread.start();
             
             
@@ -139,102 +82,81 @@ public class Client implements Runnable {
     }
     
     /**
-     * Sends a message to the server
-     *
-     * @param command String message to be sent
+     * Attempts to read response from {@link back.network.server.Server} by reading a JSON string
+     * and building it to a {@link Request}. It will then inform the user of the response from the
+     * server about their request.
      */
-    public void commandToServer( String command, String range ) {
+    private void responseFromServer(){
         
-        Request requestToServer;
-        Request.Range commandRange;
-        if (range.equals(".all")) {
-            commandRange = Request.Range.ALL;
-        } else {
-            commandRange = Request.Range.SELF;
-        }
+        String jsonInput;
         
-        switch (command) {
-            case COMMAND_DISCONNECT:
-                try {
-                    requestToServer = RequestFactory.clientDisconnect(clientID);
-                    System.out.println("Request: Disconnect");
-                    System.out.flush();
-                    this.out.writeObject(requestToServer);
-                    this.out.flush();
-                } catch (IOException e) {
-                    CCHandler.onIOSocketFailure("Could not write requestToServer");
+        while(!isStopped){
+            try {
+                jsonInput = this.in.readUTF();
+                if (jsonInput != null) {
+                    Request response = new Request.Builder().fromJSONString(jsonInput).build();
+    
+                    switch (response.getTopic()) {
+                        case AVERAGE:
+                            System.out.println("Average: " + response.getAmount());
+                            System.out.flush();
+                            break;
+                        case COUNT:
+                            System.out.println("Average: " + response.getAmount());
+                            System.out.flush();
+                            break;
+                        case HISTORY:
+                            System.out.println("Average: " + response.getAmount());
+                            System.out.flush();
+                            break;
+                        case USERS:
+                            System.out.println("Average: " + response.getAmount());
+                            System.out.flush();
+                            break;
+                    }
                 }
-                break;
-            case COMMAND_COUNT:
-                try {
-                    requestToServer = RequestFactory.clientCountRequest(clientID, commandRange);
-                    System.out.println("Request: COUNT");
-                    System.out.flush();
-                    this.out.writeObject(requestToServer);
-                    this.out.flush();
-                } catch (IOException e) {
-                    CCHandler.onIOSocketFailure("Could not write requestToServer: Count");
-                }
-                break;
-            case COMMAND_AVERAGE:
-                try {
-                    requestToServer = RequestFactory.clientAverageRequest(clientID, commandRange);
-                    System.out.println("Request: AVERAGE");
-                    System.out.flush();
-                    this.out.writeObject(requestToServer);
-                    this.out.flush();
-                } catch (IOException e) {
-                    CCHandler.onIOSocketFailure("Could not write requestToServer: Average");
-                }
-                break;
-            case COMMAND_HISTORY:
-                try {
-                    requestToServer = RequestFactory.clientHistoryRequest(clientID, commandRange);
-                    System.out.println("Request: HISTORY");
-                    System.out.flush();
-                    this.out.writeObject(requestToServer);
-                    this.out.flush();
-                } catch (IOException e) {
-                    CCHandler.onIOSocketFailure("Could not write requestToServer: History");
-                }
-                break;
+            } catch (EOFException e){
+                //TODO Figure out how to handle this
+            } catch (IOException e){
+                CCHandler.onIOSocketFailure("Could not receive response from server");
+            }
         }
     }
     
     /**
-     * Sends the value to the server
+     * Writes the {@link Request} JSON String to the outputstream of Client.
      *
-     * @param value value of number
+     * @param request The Request that has been made by the client
      */
-    public void valueToServer( int value ) {
+    public void requestToServer( Request request) {
         
-        Request requestToServer;
-        
-        requestToServer = RequestFactory.clientSubmitRequest(clientID, value);
-        System.out.println(requestToServer.toJSONString());
-        System.out.flush();
+        if(request==null){
+            CCHandler.onRequestFailure("The request is null.");
+            return;
+        }
         
         try {
-            this.out.writeObject(requestToServer);
-            this.out.flush();
-        } catch (IOException e) {
-            CCHandler.onIOSocketFailure("Could not write requestToServer");
+            this.out.writeUTF(request.toJSONString());
+        } catch (IOException e){
+            CCHandler.onIOSocketFailure("Could not send request to server");
         }
     }
     
     /**
-     * Shutdowns the client connection with the server
+     * Attempts to terminate the {@link Client} by closing the input and output streams. Then attempting
+     * to close the socket.
      */
-    public boolean terminate() {
+    public boolean shutdown() {
         
         try {
             this.in.close();
             this.out.close();
+            this.isStopped = true;
             
             this.clientSocket.close();
             if (clientSocket.isClosed()) {
-                CCHandler.onConnectionBroken("Client or Server severed connection");
-                this.isStopped = true;
+                //TODO Requires disconnect
+                CCHandler.onShutdownSuccess();
             }
         } catch (IOException e) {
             CCHandler.onShutdownFailure("Error in closing client");
@@ -244,13 +166,14 @@ public class Client implements Runnable {
     }
     
     /**
-     * Opens the client socket with designated port and address
+     * Attempts to create a new socket and connect with address and port with a timeout of 5 seconds.
+     * Should the connection fail, it will callback to {@link ClientAdapter} with the issue.
      */
     private void openClientSocket() {
         
         try {
             this.clientSocket = new Socket();
-            this.clientSocket.connect(new InetSocketAddress(clientAddress, clientPort), 2000);
+            this.clientSocket.connect(new InetSocketAddress(clientAddress, clientPort), 5000);
             CCHandler.onOpenSocketSuccess();
         } catch (IOException e) {
             CCHandler.onOpenSocketFailure("Could not open socket of IP: " + clientAddress + " and Port: " + clientPort);
@@ -260,30 +183,68 @@ public class Client implements Runnable {
     /**
      * @return Client ID, Client Address, and Client Port
      */
+    @Override
     public String toString() {
         
         return "ClientID: " + clientID + "\nClient Address: " + clientAddress + "\nClient Port: " + clientPort;
     }
     
     /**
-     * Handler to communicate between ClientAdapter and Client
+     * The communication interface for the Client to the {@link ClientAdapter}.
      */
     public interface ClientHandler {
-        
+    
+        /**
+         * Callback to the {@link ClientAdapter} to inform success of opening socket.
+         */
         void onOpenSocketSuccess();
-        
+    
+        /**
+         * Callback to the {@link ClientAdapter} to inform failure of opening socket.
+         * Example reason include port or ip being invalid or used
+         */
         void onOpenSocketFailure( final String reason );
-        
-        void onServerConnected( final String ipAddress );
-        
-        void onClientDisconnected( final String ipAddress, final long clientID );
-        
+    
+        /**
+         * Callback to the {@link ClientAdapter} to inform connection to the server.
+         */
+        void onServerConnected( final String address);
+    
+        /**
+         * Callback to the {@link ClientAdapter} to inform connection to server has been broken.
+         * Example reason include the {@link back.network.server.ClientConnection} abruptly closing
+         * connection but {@link Client} still retains the connection.
+         */
+        void onConnectionBroken( final String reason);
+    
+        /**
+         * Callback to the {@link ClientAdapter} to inform success on shutdown
+         * {@link ClientAdapter} will then process the terminated client
+         */
         void onShutdownSuccess();
+    
+        /**
+         * Callback to the {@link ClientAdapter} to inform failure on shutdown.
+         * Example reason of failure include the sockets or threads not closing.
+         */
+        void onShutdownFailure(final String reason);
         
-        void onShutdownFailure( final String reason );
-        
-        void onConnectionBroken( final String reason );
-        
+        /**
+         * Callback to the {@link ClientAdapter} to inform failure in client socket. Example reason of
+         * failure include the input or output stream abruptly closed and cannot write or read from them.
+         */
         void onIOSocketFailure( final String reason );
+    
+        /**
+         * Callback to the {@link ClientAdapter} to inform the new clientID of the user.
+         * Used to create Requests in the {@link ClientAdapter}
+         */
+        void onClientIdObtained( final long id );
+    
+        /**
+         * Callback to the {@link ClientAdapter} to inform the an issue with the request.
+         * Example reason include the request being null. Extreme case!
+         */
+        void onRequestFailure( final String reason);
     }
 }

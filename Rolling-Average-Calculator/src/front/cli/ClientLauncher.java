@@ -4,6 +4,7 @@ import back.interfacing.ClientUI;
 import back.network.client.ClientAdapter;
 import front.cli.indicators.ProgressIndicator;
 import front.cli.indicators.SpinningProgressIndicator;
+import utility.request.Request;
 
 import java.util.Scanner;
 import java.util.concurrent.locks.ReentrantLock;
@@ -19,6 +20,7 @@ public class ClientLauncher implements ClientUI {
     private ProgressIndicator progressIndicator = new SpinningProgressIndicator();
     private Scanner scanner = new Scanner(System.in);
     private MenuState menuState = MenuState.RequestServerInfo;
+    
     /**
      * This lock should be used any time the {@link MenuState} may
      * change, which is likely any time the user is asked for input.
@@ -143,12 +145,13 @@ public class ClientLauncher implements ClientUI {
                 System.out.println("Main Menu:");
                 System.out.println("Options:");
                 System.out.println("1) Submit number");
-                System.out.println("2) Request average of Server");
-                System.out.println("3) Request average of your  numbers");
-                System.out.println("4) Request all Submissions from you");
-                System.out.println("5) Request all Submissions from everyone on the server");
-                System.out.println("6) Request count of your submissions");
-                System.out.println("7) Close connection");
+                System.out.println("2) Request User Average");
+                System.out.println("3) Request User Submission");
+                System.out.println("4) Request User Count Submission");
+                System.out.println("5) Request Server Average");
+                System.out.println("6) Request Server Submission");
+                System.out.println("7) Request Server User Count");
+                System.out.println("8) Close connection");
                 System.out.println("\nWhat would you like to do? (number only) ");
                 final String input = scanner.nextLine();
                 if (input.length() == 1) {
@@ -164,22 +167,25 @@ public class ClientLauncher implements ClientUI {
                         clientAdapter.sendValue(numInput);
                         break;
                     } else if (input.equalsIgnoreCase("2")) {
-                        clientAdapter.sendCommand(".average", ".all");
+                        clientAdapter.sendRequest(Request.Topic.AVERAGE, Request.Range.SELF);
                         break;
                     } else if (input.equalsIgnoreCase("3")) {
-                        clientAdapter.sendCommand(".average", ".self");
+                        clientAdapter.sendRequest(Request.Topic.HISTORY, Request.Range.SELF);
                         break;
                     } else if (input.equalsIgnoreCase("4")) {
-                        clientAdapter.sendCommand(".history", ".self");
+                        clientAdapter.sendRequest(Request.Topic.COUNT, Request.Range.SELF);
                         break;
                     } else if (input.equalsIgnoreCase("5")) {
-                        clientAdapter.sendCommand(".history", ".all");
+                        clientAdapter.sendRequest(Request.Topic.AVERAGE, Request.Range.ALL);
                         break;
                     } else if (input.equalsIgnoreCase("6")) {
-                        clientAdapter.sendCommand(".count", ".self");
+                        clientAdapter.sendRequest(Request.Topic.HISTORY, Request.Range.ALL);
                         break;
                     } else if (input.equalsIgnoreCase("7")) {
-                        clientAdapter.sendCommand(".disconnect", ".self");
+                        clientAdapter.sendRequest(Request.Topic.USERS, Request.Range.ALL);
+                        break;
+                    } else if (input.equalsIgnoreCase("8")) {
+                        clientAdapter.sendRequest(Request.Topic.DISCONNECT, Request.Range.SELF);
                         clientAdapter.disconnect();
                         hasNewInput = false;
                         break;
