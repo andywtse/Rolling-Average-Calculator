@@ -99,18 +99,19 @@ public class ClientAdapter implements Client.ClientHandler {
      * @param topic The type of request is being made from the user
      * @param range Determines if request applies to ALL or SELF
      */
-    public void sendRequest( Request.Topic topic, Request.Range range) {
+    public void sendRequest( Request.Topic topic, Request.Range range ) {
+        
         Request request = null;
-    
+        
         switch (topic) {
             case AVERAGE:
-                request = RequestFactory.clientAverageRequest(clientID,range);
+                request = RequestFactory.clientAverageRequest(clientID, range);
                 break;
             case COUNT:
-                request = RequestFactory.clientCountRequest(clientID,range);
+                request = RequestFactory.clientCountRequest(clientID, range);
                 break;
             case HISTORY:
-                request = RequestFactory.clientHistoryRequest(clientID,range);
+                request = RequestFactory.clientHistoryRequest(clientID, range);
                 break;
             case USERS:
                 request = RequestFactory.clientUsersRequest(clientID);
@@ -136,7 +137,8 @@ public class ClientAdapter implements Client.ClientHandler {
      * @param value a value the client submits to the server
      */
     public void sendValue( int value ) {
-        Request request = RequestFactory.clientSubmitRequest(clientID,value);
+        
+        Request request = RequestFactory.clientSubmitRequest(clientID, value);
         this.client.requestToServer(request);
         
     }
@@ -167,11 +169,6 @@ public class ClientAdapter implements Client.ClientHandler {
     }
     
     @Override
-    public void onConnectionBroken( String reason ) {
-        //TODO
-    }
-    
-    @Override
     public void onServerConnected( String ipAddress ) {
         
         while (!stateLock.isHeldByCurrentThread()) {
@@ -180,6 +177,11 @@ public class ClientAdapter implements Client.ClientHandler {
         final String connection = "CCHandler: Server IP Address: " + ipAddress + " disconnected";
         System.out.println(connection);
         stateLock.unlock();
+    }
+    
+    @Override
+    public void onConnectionBroken( String reason ) {
+        //TODO
     }
     
     @Override
@@ -217,7 +219,8 @@ public class ClientAdapter implements Client.ClientHandler {
     }
     
     @Override
-    public void onClientIdObtained(final long id){
+    public void onClientIdObtained( final long id ) {
+        
         while (!stateLock.isHeldByCurrentThread()) {
             stateLock.lock();
         }

@@ -9,7 +9,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.SocketException;
-import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -84,17 +83,18 @@ public class ClientConnection implements Runnable {
         }
     }
     
-    private void requestFromServer(){
+    private void requestFromServer() {
+        
         String jsonInput;
         
-        while(!isStopped){
+        while (!isStopped) {
             try {
-                jsonInput = (String)this.in.readObject();
+                jsonInput = (String) this.in.readObject();
                 if (jsonInput != null) {
                     System.out.println(jsonInput);
                     System.out.flush();
                     Request request = new Request.Builder().fromJSONString(jsonInput).build();
-                
+                    
                     switch (request.getTopic()) {
                         case SUBMIT:
                             processSubmit(request);
@@ -116,59 +116,62 @@ public class ClientConnection implements Runnable {
                             break;
                     }
                 }
-            } catch (EOFException e){
+            } catch (EOFException e) {
                 //TODO Figure out how to handle this
-            } catch (ClassNotFoundException e){
+            } catch (ClassNotFoundException e) {
                 //TODO Figure out how to handle this
-            } catch (IOException e){
+            } catch (IOException e) {
                 //TODO Handle this exception
             }
         }
     }
     
-    private void processSubmit(Request request){
+    private void processSubmit( Request request ) {
+        
         clientSubmission.add(request.getAmount());
-        clientSum+=request.getAmount();
+        clientSum += request.getAmount();
         
         serverCCHandler.onRequestReceived(request);
     }
     
-    private void processAverage(Request request){
-    
+    private void processAverage( Request request ) {
+        
         switch (request.getRange()) {
             case ALL:
                 serverCCHandler.onRequestReceived(request);
                 break;
             case SELF:
                 int average = 0;
-                if(clientSubmission.size()>0){
-                    average = clientSum/clientSubmission.size();
+                if (clientSubmission.size() > 0) {
+                    average = clientSum / clientSubmission.size();
                 }
-                Request response = RequestFactory.serverAverageResponse(Request.Response.OK, Request.Range.SELF,average);
+                Request response = RequestFactory.serverAverageResponse(Request.Response.OK, Request.Range.SELF, average);
                 respondToClient(response);
                 break;
         }
     }
     
     private void processCount( Request request ) {
+        
         switch (request.getRange()) {
             case ALL:
                 serverCCHandler.onRequestReceived(request);
                 break;
             case SELF:
-                Request response = RequestFactory.serverCountResponse(Request.Response.OK, Request.Range.SELF,clientSubmission.size());
+                Request response = RequestFactory.serverCountResponse(Request.Response.OK, Request.Range.SELF, clientSubmission.size());
                 respondToClient(response);
                 break;
         }
     }
     
     private void processHistory( Request request ) {
+        
         switch (request.getRange()) {
             case ALL:
                 serverCCHandler.onRequestReceived(request);
                 break;
             case SELF:
-                Request response = RequestFactory.serverHistoryResponse(Request.Response.OK, Request.Range.SELF,clientSubmission);
+                Request response = RequestFactory.serverHistoryResponse(Request.Response.OK, Request.Range.SELF, clientSubmission);
                 respondToClient(response);
                 break;
         }
@@ -199,29 +202,29 @@ public class ClientConnection implements Runnable {
     public synchronized boolean terminateConnection() {
         
         try {
-            try{
+            try {
                 Request disconnectClient = RequestFactory.serverDisconnect();
                 this.out.writeObject(disconnectClient.toJSONString());
                 this.out.flush();
                 this.wait(500);
-            } catch (SocketException e){
+            } catch (SocketException e) {
                 //TODO Handler
                 //Already closed
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-    
+            
             this.clientConnectionThread.interrupt();
-            try{
+            try {
                 this.wait(2000);
-            } catch (InterruptedException e){
+            } catch (InterruptedException e) {
                 //TODO Make handler for this
                 //Wait for interrupt
             }
             
             this.in.close();
             this.out.close();
-    
+            
             this.isStopped = true;
             
             this.clientSocket.close();
@@ -239,7 +242,7 @@ public class ClientConnection implements Runnable {
      * The communication interface for the ClientConnection to the {@link Server}.
      */
     public interface ClientConnectionHandler {
-    
+        
         /**
          * Callback to the {@link Server} to inform that the client has made a request.
          * The server must deal with the request and send a response back

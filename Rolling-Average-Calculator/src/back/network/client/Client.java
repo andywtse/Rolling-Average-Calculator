@@ -43,10 +43,14 @@ public class Client implements Runnable {
      *
      * @param handler The communication interface being used.
      */
-    public void setCCHandler( final ClientHandler handler ) { CCHandler = handler; }
+    public void setCCHandler( final ClientHandler handler ) {
+        
+        CCHandler = handler;
+    }
     
     /**
-     * The {@link Client} will call openClientSocket() to establish a connection with the {@link back.network.server.Server}.
+     * The {@link Client} will call openClientSocket() to establish a connection with the {@link
+     * back.network.server.Server}.
      * Then it initializes the inputs and outputs to allow communication between the client and server.
      * Afterwards, it will create a listening thread to read responses from the server.
      */
@@ -83,16 +87,16 @@ public class Client implements Runnable {
      * and building it to a {@link Request}. It will then inform the user of the response from the
      * server about their request.
      */
-    private void responseFromServer(){
+    private void responseFromServer() {
         
         String jsonOutput;
         
-        while(!isStopped){
+        while (!isStopped) {
             try {
-                jsonOutput = (String)this.in.readObject();
+                jsonOutput = (String) this.in.readObject();
                 if (jsonOutput != null) {
                     Request response = new Request.Builder().fromJSONString(jsonOutput).build();
-    
+                    
                     switch (response.getTopic()) {
                         case AVERAGE:
                             System.out.println("Average: " + response.getAmount());
@@ -112,14 +116,14 @@ public class Client implements Runnable {
                             break;
                     }
                     
-                }else{
+                } else {
                     //TODO Handle bad response
                 }
-            } catch (EOFException e){
+            } catch (EOFException e) {
                 //TODO Figure out how to handle this
-            } catch (ClassNotFoundException e){
+            } catch (ClassNotFoundException e) {
                 //TODO Figure out how to handle this
-            } catch (IOException e){
+            } catch (IOException e) {
                 CCHandler.onIOSocketFailure("Could not receive response from server");
             }
         }
@@ -130,16 +134,16 @@ public class Client implements Runnable {
      *
      * @param request The Request that has been made by the client
      */
-    public void requestToServer( Request request) {
+    public void requestToServer( Request request ) {
         
-        if(request==null){
+        if (request == null) {
             CCHandler.onRequestFailure("The request is null.");
             return;
         }
         
         try {
             this.out.writeObject(request.toJSONString());
-        } catch (IOException e){
+        } catch (IOException e) {
             CCHandler.onIOSocketFailure("Could not send request to server");
         }
     }
@@ -195,58 +199,58 @@ public class Client implements Runnable {
      * The communication interface for the Client to the {@link ClientAdapter}.
      */
     public interface ClientHandler {
-    
+        
         /**
          * Callback to the {@link ClientAdapter} to inform success of opening socket.
          */
         void onOpenSocketSuccess();
-    
+        
         /**
          * Callback to the {@link ClientAdapter} to inform failure of opening socket.
          * Example reason include port or ip being invalid or used
          */
         void onOpenSocketFailure( final String reason );
-    
+        
         /**
          * Callback to the {@link ClientAdapter} to inform connection to the server.
          */
-        void onServerConnected( final String address);
-    
+        void onServerConnected( final String address );
+        
         /**
          * Callback to the {@link ClientAdapter} to inform connection to server has been broken.
          * Example reason include the {@link back.network.server.ClientConnection} abruptly closing
          * connection but {@link Client} still retains the connection.
          */
-        void onConnectionBroken( final String reason);
-    
+        void onConnectionBroken( final String reason );
+        
         /**
          * Callback to the {@link ClientAdapter} to inform success on shutdown
          * {@link ClientAdapter} will then process the terminated client
          */
         void onShutdownSuccess();
-    
+        
         /**
          * Callback to the {@link ClientAdapter} to inform failure on shutdown.
          * Example reason of failure include the sockets or threads not closing.
          */
-        void onShutdownFailure(final String reason);
+        void onShutdownFailure( final String reason );
         
         /**
          * Callback to the {@link ClientAdapter} to inform failure in client socket. Example reason of
          * failure include the input or output stream abruptly closed and cannot write or read from them.
          */
         void onIOSocketFailure( final String reason );
-    
+        
         /**
          * Callback to the {@link ClientAdapter} to inform the new clientID of the user.
          * Used to create Requests in the {@link ClientAdapter}
          */
         void onClientIdObtained( final long id );
-    
+        
         /**
          * Callback to the {@link ClientAdapter} to inform the an issue with the request.
          * Example reason include the request being null. Extreme case!
          */
-        void onRequestFailure( final String reason);
+        void onRequestFailure( final String reason );
     }
 }
